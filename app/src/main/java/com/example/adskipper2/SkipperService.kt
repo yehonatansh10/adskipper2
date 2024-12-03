@@ -8,6 +8,8 @@ import android.util.Log
 import android.os.Handler
 import android.os.Looper
 import android.widget.Toast
+import com.example.adskipper2.gesture.GesturePlayer
+import com.example.adskipper2.gesture.GestureAction
 
 class SkipperService : AccessibilityService() {
     private lateinit var prefs: SharedPreferences
@@ -15,8 +17,16 @@ class SkipperService : AccessibilityService() {
     private lateinit var gesturePlayer: GesturePlayer
     private val handler = Handler(Looper.getMainLooper())
 
+    companion object {
+        private const val TAG = "SkipperService"
+    }
+
     override fun onCreate() {
         super.onCreate()
+        initializeServices()
+    }
+
+    private fun initializeServices() {
         prefs = getSharedPreferences("targets", MODE_PRIVATE)
         gesturePrefs = getSharedPreferences("gestures", MODE_PRIVATE)
         gesturePlayer = GesturePlayer(this)
@@ -24,88 +34,96 @@ class SkipperService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        event?.let {
-            val currentPackage = it.packageName?.toString()
-            val targetApps = prefs.getStringSet("selected_apps", setOf()) ?: setOf()
+        if (event == null) return
 
-            if (currentPackage in targetApps) {
-                val targetText = prefs.getString("${currentPackage}_text", "") ?: ""
-                val sourceText = event.text?.joinToString(" ") ?: ""
+        val currentPackage = event.packageName?.toString() ?: return
+        val targetApps = prefs.getStringSet("selected_apps", setOf()) ?: return
 
-                Log.d("SkipperService", "Checking text: $sourceText")
-                Log.d("SkipperService", "Target text: $targetText")
+        if (currentPackage in targetApps) {
+            checkAndPerformAction(event, currentPackage)
+        }
+    }
 
-                if (sourceText.contains(targetText, ignoreCase = true)) {
-                    Log.d("SkipperService", "Found matching text!")
-                    performAction()
-                }
-            }
+    private fun checkAndPerformAction(event: AccessibilityEvent, currentPackage: String) {
+        val targetText = prefs.getString("${currentPackage}_text", "") ?: return
+        val sourceText = event.text?.joinToString(" ") ?: return
+
+        Log.d(TAG, "Checking text: $sourceText")
+        Log.d(TAG, "Target text: $targetText")
+
+        if (sourceText.contains(targetText, ignoreCase = true)) {
+            Log.d(TAG, "Found matching text!")
+            performAction()
         }
     }
 
     override fun onInterrupt() {
-        Log.d("SkipperService", "Service Interrupted")
+        Log.d(TAG, "Service Interrupted")
     }
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        Log.d("SkipperService", "Service Connected")
-        handler.post {
-            Toast.makeText(this, "שירות הדילוג הופעל", Toast.LENGTH_SHORT).show()
-        }
+        Log.d(TAG, "Service Connected")
+        showToast("שירות הדילוג הופעל")
     }
 
     private fun performAction() {
-        // בדוק אם יש פעולות מוקלטות
         val recordedActionsString = gesturePrefs.getString("recorded_actions", null)
-        if (recordedActionsString != null) {
-            // המר את המחרוזת לרשימת פעולות
-            val actions = parseRecordedActions(recordedActionsString)
-            if (actions.isNotEmpty()) {
-                // הפעל את הפעולות המוקלטות
-                gesturePlayer.playActions(actions)
-                handler.post {
-                    Toast.makeText(this, "מבצע פעולות מוקלטות", Toast.LENGTH_SHORT).show()
-                }
-                return
-            }
+
+        if (!recordedActionsString.isNullOrEmpty()) {
+            executeRecordedActions(recordedActionsString)
+            return
         }
 
-        // אם אין פעולות מוקלטות, בצע את פעולת ברירת המחדל (גלילה)
-        val root = rootInActiveWindow
-        root?.let {
+        performDefaultAction()
+    }
+
+    private fun executeRecordedActions(actionsString: String) {
+        val actions = parseRecordedActions(actionsString)
+        if (actions.isNotEmpty()) {
+            gesturePlayer.playActions(actions)
+            showToast("מבצע פעולות מוקלטות")
+        }
+    }
+
+    private fun performDefaultAction() {
+        rootInActiveWindow?.let {
             it.performAction(AccessibilityNodeInfo.ACTION_SCROLL_FORWARD)
-            handler.post {
-                Toast.makeText(this, "בוצעה פעולת דילוג", Toast.LENGTH_SHORT).show()
-            }
+            showToast("בוצעה פעולת דילוג")
+        }
+    }
+
+    private fun showToast(message: String) {
+        handler.post {
+            Toast.makeText(this, message, Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun parseRecordedActions(actionsString: String): List<GestureAction> {
         return try {
-            // המרת המחרוזת לרשימת פעולות
-            // הפורמט תלוי באופן השמירה ב-SharedPreferences
             actionsString.split(";").mapNotNull { actionStr ->
                 when {
-                    actionStr.startsWith("tap:") -> {
-                        val (x, y) = actionStr.substringAfter("tap:").split(",").map { it.toFloat() }
-                        GestureAction.Tap(x, y)
-                    }
-                    actionStr.startsWith("doubletap:") -> {
-                        val (x, y) = actionStr.substringAfter("doubletap:").split(",").map { it.toFloat() }
-                        GestureAction.DoubleTap(x, y)
-                    }
-                    actionStr.startsWith("scroll:") -> {
-                        val (startX, startY, endX, endY) = actionStr.substringAfter("scroll:")
-                            .split(",").map { it.toFloat() }
-                        GestureAction.Scroll(startX, startY, endX, endY)
-                    }
+                    actionStr.startsWith("tap:") -> createTapAction(actionStr, false)
+                    actionStr.startsWith("doubletap:") -> createTapAction(actionStr, true)
+                    actionStr.startsWith("scroll:") -> createScrollAction(actionStr)
                     else -> null
                 }
             }
         } catch (e: Exception) {
-            Log.e("SkipperService", "Error parsing actions: ${e.message}")
+            Log.e(TAG, "Error parsing actions: ${e.message}")
             emptyList()
         }
+    }
+
+    private fun createTapAction(actionStr: String, isDouble: Boolean): GestureAction? {
+        val prefix = if (isDouble) "doubletap:" else "tap:"
+        val (x, y) = actionStr.substringAfter(prefix).split(",").map { it.toFloat() }
+        return if (isDouble) GestureAction.DoubleTap(x, y) else GestureAction.Tap(x, y)
+    }
+
+    private fun createScrollAction(actionStr: String): GestureAction? {
+        val (startX, startY, endX, endY) = actionStr.substringAfter("scroll:")
+            .split(",").map { it.toFloat() }
+        return GestureAction.Scroll(startX, startY, endX, endY)
     }
 }

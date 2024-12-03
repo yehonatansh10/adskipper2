@@ -3,8 +3,6 @@
     <string name="app_name">Adskipper2</string>
     <string name="adskipper2">Adskipper2</string>
     <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
-
-    <!-- מחרוזות חדשות עבור ML Kit -->
     <string name="text_recognition_success">הטקסט זוהה בהצלחה</string>
     <string name="text_recognition_error">שגיאה בזיהוי הטקסט</string>
     <string name="image_recognition_success">התמונה זוהתה בהצלחה</string>
@@ -14,4 +12,11 @@
     <string name="recognized_content_hint">התוכן שזוהה יופיע כאן</string>
     <string name="save_success">נשמר בהצלחה</string>
     <string name="save_error">שגיאה בשמירה</string>
+
+    <!-- Added strings for accessibility -->
+    <string name="accessibility_enabled">שירות הנגישות מופעל</string>
+    <string name="accessibility_disabled">שירות הנגישות כבוי</string>
+    <string name="skip_ad_action">דילוג על פרסומת</string>
+    <string name="ad_detected">זוהתה פרסומת</string>
+    <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
 </resources>

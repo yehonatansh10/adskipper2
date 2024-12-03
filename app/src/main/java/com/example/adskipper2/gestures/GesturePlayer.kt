@@ -6,25 +6,45 @@ import android.content.Context
 import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 
 class GesturePlayer(private val context: Context) {
-    private val gestureBuilder = GestureDescription.Builder()
     private var accessibilityService: AccessibilityService? = null
     private val handler = Handler(Looper.getMainLooper())
+
+    companion object {
+        private const val TAG = "GesturePlayer"
+        private const val TAP_DURATION = 100L
+        private const val SCROLL_DURATION = 300L
+        private const val DOUBLE_TAP_DELAY = 200L
+        private const val ACTION_DELAY = 500L
+    }
 
     fun setAccessibilityService(service: AccessibilityService) {
         accessibilityService = service
     }
 
     fun playActions(actions: List<GestureAction>) {
-        actions.forEachIndexed { index, action ->
-            handler.postDelayed({
-                when (action) {
-                    is GestureAction.Tap -> performTap(action.x, action.y)
-                    is GestureAction.DoubleTap -> performDoubleTap(action.x, action.y)
-                    is GestureAction.Scroll -> performScroll(action.startX, action.startY, action.endX, action.endY)
-                }
-            }, index * 500L)
+        try {
+            actions.forEachIndexed { index, action ->
+                handler.postDelayed({
+                    executeAction(action)
+                }, index * ACTION_DELAY)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error playing actions: ${e.message}", e)
+        }
+    }
+
+    private fun executeAction(action: GestureAction) {
+        try {
+            when (action) {
+                is GestureAction.Tap -> performTap(action.x, action.y)
+                is GestureAction.DoubleTap -> performDoubleTap(action.x, action.y)
+                is GestureAction.Scroll -> performScroll(action.startX, action.startY, action.endX, action.endY)
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error executing action: ${e.message}", e)
         }
     }
 
@@ -33,11 +53,9 @@ class GesturePlayer(private val context: Context) {
             moveTo(x, y)
         }
 
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 100))
-            .build()
-
-        accessibilityService?.dispatchGesture(gesture, null, null)
+        dispatchGesture(GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, TAP_DURATION))
+            .build())
     }
 
     private fun performDoubleTap(x: Float, y: Float) {
@@ -45,12 +63,10 @@ class GesturePlayer(private val context: Context) {
             moveTo(x, y)
         }
 
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 100))
-            .addStroke(GestureDescription.StrokeDescription(path, 200, 100))
-            .build()
-
-        accessibilityService?.dispatchGesture(gesture, null, null)
+        dispatchGesture(GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, TAP_DURATION))
+            .addStroke(GestureDescription.StrokeDescription(path, DOUBLE_TAP_DELAY, TAP_DURATION))
+            .build())
     }
 
     private fun performScroll(startX: Float, startY: Float, endX: Float, endY: Float) {
@@ -59,10 +75,15 @@ class GesturePlayer(private val context: Context) {
             lineTo(endX, endY)
         }
 
-        val gesture = GestureDescription.Builder()
-            .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
-            .build()
+        dispatchGesture(GestureDescription.Builder()
+            .addStroke(GestureDescription.StrokeDescription(path, 0, SCROLL_DURATION))
+            .build())
+    }
 
-        accessibilityService?.dispatchGesture(gesture, null, null)
+    private fun dispatchGesture(gesture: GestureDescription) {
+        accessibilityService?.let {
+            it.dispatchGesture(gesture, null, null) ?:
+            Log.e(TAG, "Failed to dispatch gesture")
+        } ?: Log.e(TAG, "AccessibilityService not set")
     }
 }
