@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Adskipper2</string>
+    <string name="adskipper2">Adskipper2</string>
+    <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
+
+    <!-- מחרוזות חדשות עבור ML Kit -->
+    <string name="text_recognition_success">הטקסט זוהה בהצלחה</string>
+    <string name="text_recognition_error">שגיאה בזיהוי הטקסט</string>
+    <string name="image_recognition_success">התמונה זוהתה בהצלחה</string>
+    <string name="image_recognition_error">שגיאה בזיהוי התמונה</string>
+    <string name="select_image">בחר תמונה</string>
+    <string name="enter_text">הכנס טקסט</string>
+    <string name="recognized_content_hint">התוכן שזוהה יופיע כאן</string>
+    <string name="save_success">נשמר בהצלחה</string>
+    <string name="save_error">שגיאה בשמירה</string>
+</resources>
