@@ -1,10 +1,12 @@
 package com.example.adskipper2
 
 import android.Manifest
+import android.app.Activity
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
+import android.media.projection.MediaProjectionManager
 import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
@@ -37,6 +39,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
     private lateinit var gestureRecorder: GestureRecorder
     private lateinit var gesturePlayer: GesturePlayer
+    private lateinit var projectionManager: MediaProjectionManager
 
     private val selectedApps = mutableStateOf(setOf<AppInfo>())
     private val selectedContent = mutableStateOf(setOf<String>())
@@ -53,8 +56,17 @@ class MainActivity : ComponentActivity() {
         private val REQUIRED_PERMISSIONS = arrayOf(
             Manifest.permission.SYSTEM_ALERT_WINDOW,
             Manifest.permission.READ_EXTERNAL_STORAGE,
-            Manifest.permission.WRITE_EXTERNAL_STORAGE
+            Manifest.permission.WRITE_EXTERNAL_STORAGE,
+            Manifest.permission.FOREGROUND_SERVICE
         )
+    }
+
+    private val startScreenCapture = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        if (result.resultCode == Activity.RESULT_OK && result.data != null) {
+            startTextDetectionService(result.resultCode, result.data!!)
+        }
     }
 
     private val requestPermissionLauncher = registerForActivityResult(
@@ -117,6 +129,7 @@ class MainActivity : ComponentActivity() {
         prefs = getSharedPreferences("targets", MODE_PRIVATE)
         gestureRecorder = GestureRecorder()
         gesturePlayer = GesturePlayer(this)
+        projectionManager = getSystemService(MEDIA_PROJECTION_SERVICE) as MediaProjectionManager
         loadInstalledApps()
         checkRequiredPermissions()
         initializePrefs()
@@ -235,10 +248,20 @@ class MainActivity : ComponentActivity() {
 
     private fun loadInstalledApps() {
         Log.d(TAG, "Loading installed apps")
-        availableApps.value = packageManager.getInstalledApplications(PackageManager.GET_META_DATA)
-            .filterNot { isSystemApp(it) }
-            .map { AppInfo(packageManager.getApplicationLabel(it).toString(), it.packageName) }
+        val intent = Intent(Intent.ACTION_MAIN, null)
+        intent.addCategory(Intent.CATEGORY_LAUNCHER)
+
+        availableApps.value = packageManager.queryIntentActivities(intent, 0)
+            .map {
+                AppInfo(
+                    name = it.loadLabel(packageManager).toString(),
+                    packageName = it.activityInfo.packageName
+                )
+            }
+            .distinctBy { it.packageName }
+            .filterNot { isSystemApp(packageManager.getApplicationInfo(it.packageName, 0)) }
             .sortedBy { it.name }
+
         Log.d(TAG, "Loaded ${availableApps.value.size} apps")
     }
 
@@ -263,12 +286,23 @@ class MainActivity : ComponentActivity() {
             }
             else -> {
                 saveServicePreferences()
-                startService(Intent(this, SkipperService::class.java))
+                startScreenCapture.launch(projectionManager.createScreenCaptureIntent())
                 isServiceRunning.value = true
                 Log.d(TAG, "Skipper service started")
                 Toast.makeText(this, "שירות הדילוג הופעל", Toast.LENGTH_SHORT).show()
             }
         }
+    }
+
+    private fun startTextDetectionService(resultCode: Int, data: Intent) {
+        val serviceIntent = Intent(this, TextDetectionService::class.java).apply {
+            action = TextDetectionService.ACTION_START
+            putExtra(TextDetectionService.EXTRA_RESULT_CODE, resultCode)
+            putExtra(TextDetectionService.EXTRA_DATA, data)
+            putExtra(TextDetectionService.EXTRA_TARGET_TEXT, selectedContent.value.firstOrNull() ?: "")
+            putExtra(TextDetectionService.EXTRA_TARGET_PACKAGE, selectedApps.value.firstOrNull()?.packageName ?: "")
+        }
+        startForegroundService(serviceIntent)
     }
 
     private fun saveServicePreferences() {
@@ -287,6 +321,7 @@ class MainActivity : ComponentActivity() {
     private fun stopSkipperService() {
         Log.d(TAG, "Stopping skipper service")
         stopService(Intent(this, SkipperService::class.java))
+        stopService(Intent(this, TextDetectionService::class.java))
         isServiceRunning.value = false
         Toast.makeText(this, "שירות הדילוג הופסק", Toast.LENGTH_SHORT).show()
     }
