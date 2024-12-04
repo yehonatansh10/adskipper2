@@ -16,6 +16,14 @@ class SkipperService : AccessibilityService() {
     private lateinit var gesturePrefs: SharedPreferences
     private lateinit var gesturePlayer: GesturePlayer
     private val handler = Handler(Looper.getMainLooper())
+    private val scanInterval = 1000L
+    private val scanHandler = Handler(Looper.getMainLooper())
+    private val scanRunnable = object : Runnable {
+        override fun run() {
+            checkCurrentScreen()
+            scanHandler.postDelayed(this, scanInterval)
+        }
+    }
 
     companion object {
         private const val TAG = "SkipperService"
@@ -33,6 +41,51 @@ class SkipperService : AccessibilityService() {
         gesturePlayer.setAccessibilityService(this)
     }
 
+    override fun onServiceConnected() {
+        super.onServiceConnected()
+        scanHandler.post(scanRunnable)
+        Log.d(TAG, "Service Connected")
+        showToast("שירות הדילוג הופעל")
+    }
+
+    private fun checkCurrentScreen() {
+        val currentPackage = rootInActiveWindow?.packageName?.toString() ?: return
+        val targetApps = prefs.getStringSet("selected_apps", setOf()) ?: return
+
+        if (currentPackage in targetApps) {
+            performScreenCheck(currentPackage)
+        }
+    }
+
+    private fun performScreenCheck(currentPackage: String) {
+        val targetText = prefs.getString("${currentPackage}_text", "")?.lowercase() ?: return
+
+        try {
+            val rootNode = rootInActiveWindow ?: return
+            val allNodes = ArrayList<AccessibilityNodeInfo>()
+            findAllNodes(rootNode, allNodes)
+
+            Log.d(TAG, "Scanning ${allNodes.size} nodes for text: $targetText")
+
+            for (node in allNodes) {
+                val nodeText = node.text?.toString()?.lowercase() ?: ""
+                val nodeDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+
+                Log.d(TAG, "Node text: $nodeText, desc: $nodeDesc")
+
+                if (nodeText.contains(targetText) || nodeDesc.contains(targetText)) {
+                    performActionOnNode(node)
+                    break
+                }
+            }
+
+            allNodes.forEach { it.recycle() }
+            rootNode.recycle()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in performScreenCheck", e)
+        }
+    }
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (event == null) return
 
@@ -47,47 +100,18 @@ class SkipperService : AccessibilityService() {
 
         if (currentPackage in targetApps) {
             Log.d(TAG, "Package matches target apps")
-            checkAndPerformAction(event, currentPackage)
+            performScreenCheck(currentPackage)
         }
-    }
-
-    private fun checkAndPerformAction(event: AccessibilityEvent, currentPackage: String) {
-        val targetText = prefs.getString("${currentPackage}_text", "")?.lowercase() ?: return
-        Log.d(TAG, "Looking for text: $targetText")
-
-        val rootNode = rootInActiveWindow ?: return
-        val allNodes = ArrayList<AccessibilityNodeInfo>()
-        findAllNodes(rootNode, allNodes)
-
-        var foundText = false
-        for (node in allNodes) {
-            val nodeText = node.text?.toString()?.lowercase() ?: ""
-            val nodeDesc = node.contentDescription?.toString()?.lowercase() ?: ""
-
-            if (nodeText.contains(targetText) || nodeDesc.contains(targetText)) {
-                Log.d(TAG, "Found target text in: $nodeText")
-                foundText = true
-                performActionOnNode(node)
-                break
-            }
-        }
-
-        if (!foundText) {
-            val screenText = getAllTextFromScreen(rootNode).lowercase()
-            if (screenText.contains(targetText)) {
-                performAction()
-            }
-        }
-
-        allNodes.forEach { it.recycle() }
-        rootNode.recycle()
     }
 
     private fun findAllNodes(node: AccessibilityNodeInfo?, nodes: ArrayList<AccessibilityNodeInfo>) {
         if (node == null) return
         nodes.add(node)
         for (i in 0 until node.childCount) {
-            findAllNodes(node.getChild(i), nodes)
+            val child = node.getChild(i)
+            if (child != null) {
+                findAllNodes(child, nodes)
+            }
         }
     }
 
@@ -111,34 +135,6 @@ class SkipperService : AccessibilityService() {
         }
 
         performAction()
-    }
-
-    private fun getAllTextFromScreen(node: AccessibilityNodeInfo?): String {
-        if (node == null) return ""
-
-        val textBuilder = StringBuilder()
-        if (!node.text.isNullOrEmpty()) {
-            textBuilder.append(node.text)
-            textBuilder.append(" ")
-        }
-
-        for (i in 0 until node.childCount) {
-            val child = node.getChild(i)
-            textBuilder.append(getAllTextFromScreen(child))
-            child?.recycle()
-        }
-
-        return textBuilder.toString()
-    }
-
-    override fun onInterrupt() {
-        Log.d(TAG, "Service Interrupted")
-    }
-
-    override fun onServiceConnected() {
-        super.onServiceConnected()
-        Log.d(TAG, "Service Connected")
-        showToast("שירות הדילוג הופעל")
     }
 
     private fun performAction() {
@@ -199,5 +195,10 @@ class SkipperService : AccessibilityService() {
         val (startX, startY, endX, endY) = actionStr.substringAfter("scroll:")
             .split(",").map { it.toFloat() }
         return GestureAction.Scroll(startX, startY, endX, endY)
+    }
+
+    override fun onInterrupt() {
+        Log.d(TAG, "Service Interrupted")
+        scanHandler.removeCallbacks(scanRunnable)
     }
 }
