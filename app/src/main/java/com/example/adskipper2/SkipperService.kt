@@ -39,22 +39,96 @@ class SkipperService : AccessibilityService() {
         val currentPackage = event.packageName?.toString() ?: return
         val targetApps = prefs.getStringSet("selected_apps", setOf()) ?: return
 
+        Log.d(TAG, "Event type: ${event.eventType}")
+        Log.d(TAG, "Event text: ${event.text}")
+        Log.d(TAG, "Event description: ${event.contentDescription}")
+        Log.d(TAG, "Window Changes: ${event.windowChanges}")
+        Log.d(TAG, "Content Change Types: ${event.contentChangeTypes}")
+
         if (currentPackage in targetApps) {
+            Log.d(TAG, "Package matches target apps")
             checkAndPerformAction(event, currentPackage)
         }
     }
 
     private fun checkAndPerformAction(event: AccessibilityEvent, currentPackage: String) {
-        val targetText = prefs.getString("${currentPackage}_text", "") ?: return
-        val sourceText = event.text?.joinToString(" ") ?: return
+        val targetText = prefs.getString("${currentPackage}_text", "")?.lowercase() ?: return
+        Log.d(TAG, "Looking for text: $targetText")
 
-        Log.d(TAG, "Checking text: $sourceText")
-        Log.d(TAG, "Target text: $targetText")
+        val rootNode = rootInActiveWindow ?: return
+        val allNodes = ArrayList<AccessibilityNodeInfo>()
+        findAllNodes(rootNode, allNodes)
 
-        if (sourceText.contains(targetText, ignoreCase = true)) {
-            Log.d(TAG, "Found matching text!")
-            performAction()
+        var foundText = false
+        for (node in allNodes) {
+            val nodeText = node.text?.toString()?.lowercase() ?: ""
+            val nodeDesc = node.contentDescription?.toString()?.lowercase() ?: ""
+
+            if (nodeText.contains(targetText) || nodeDesc.contains(targetText)) {
+                Log.d(TAG, "Found target text in: $nodeText")
+                foundText = true
+                performActionOnNode(node)
+                break
+            }
         }
+
+        if (!foundText) {
+            val screenText = getAllTextFromScreen(rootNode).lowercase()
+            if (screenText.contains(targetText)) {
+                performAction()
+            }
+        }
+
+        allNodes.forEach { it.recycle() }
+        rootNode.recycle()
+    }
+
+    private fun findAllNodes(node: AccessibilityNodeInfo?, nodes: ArrayList<AccessibilityNodeInfo>) {
+        if (node == null) return
+        nodes.add(node)
+        for (i in 0 until node.childCount) {
+            findAllNodes(node.getChild(i), nodes)
+        }
+    }
+
+    private fun performActionOnNode(node: AccessibilityNodeInfo) {
+        if (node.isClickable) {
+            node.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+            showToast("לחיצה על כפתור")
+            return
+        }
+
+        var parent = node.parent
+        while (parent != null) {
+            if (parent.isClickable) {
+                parent.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                showToast("לחיצה על אזור ההורה")
+                return
+            }
+            val newParent = parent.parent
+            parent.recycle()
+            parent = newParent
+        }
+
+        performAction()
+    }
+
+    private fun getAllTextFromScreen(node: AccessibilityNodeInfo?): String {
+        if (node == null) return ""
+
+        val textBuilder = StringBuilder()
+        if (!node.text.isNullOrEmpty()) {
+            textBuilder.append(node.text)
+            textBuilder.append(" ")
+        }
+
+        for (i in 0 until node.childCount) {
+            val child = node.getChild(i)
+            textBuilder.append(getAllTextFromScreen(child))
+            child?.recycle()
+        }
+
+        return textBuilder.toString()
     }
 
     override fun onInterrupt() {
