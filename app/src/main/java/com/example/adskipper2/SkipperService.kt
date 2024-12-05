@@ -92,15 +92,13 @@ class SkipperService : AccessibilityService() {
         val currentPackage = event.packageName?.toString() ?: return
         val targetApps = prefs.getStringSet("selected_apps", setOf()) ?: return
 
-        Log.d(TAG, "Event type: ${event.eventType}")
-        Log.d(TAG, "Event text: ${event.text}")
-        Log.d(TAG, "Event description: ${event.contentDescription}")
-        Log.d(TAG, "Window Changes: ${event.windowChanges}")
-        Log.d(TAG, "Content Change Types: ${event.contentChangeTypes}")
+        Log.d(TAG, "Accessibility Event: package=$currentPackage, type=${event.eventType}")
 
         if (currentPackage in targetApps) {
             Log.d(TAG, "Package matches target apps")
-            performScreenCheck(currentPackage)
+            handler.postDelayed({
+                performScreenCheck(currentPackage)
+            }, 500) // Add small delay to ensure screen has updated
         }
     }
 

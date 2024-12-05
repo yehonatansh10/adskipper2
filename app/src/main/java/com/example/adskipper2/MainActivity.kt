@@ -2,6 +2,7 @@ package com.example.adskipper2
 
 import android.Manifest
 import android.app.Activity
+import android.app.ActivityManager
 import android.content.Intent
 import android.content.SharedPreferences
 import android.content.pm.ApplicationInfo
@@ -32,6 +33,9 @@ import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
+import android.content.BroadcastReceiver
+import android.content.IntentFilter
+import android.content.Context
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -61,6 +65,17 @@ class MainActivity : ComponentActivity() {
         )
     }
 
+    private val textDetectionReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == "TEXT_DETECTED_ACTION") {
+                Log.d(TAG, "Text detection broadcast received")
+                if (recordedActions.isNotEmpty()) {
+                    gesturePlayer.playActions(recordedActions)
+                }
+            }
+        }
+    }
+
     private val startScreenCapture = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult()
     ) { result ->
@@ -86,6 +101,17 @@ class MainActivity : ComponentActivity() {
             Log.d(TAG, "Image selected: $uri")
             if (checkStoragePermission()) saveSelectedImage(it)
             else requestStoragePermission()
+        }
+    }
+
+    private fun stopSkipperService() {
+        try {
+            stopService(Intent(this, SkipperService::class.java))
+            stopService(Intent(this, TextDetectionService::class.java))
+            isServiceRunning.value = false
+            Toast.makeText(this, "שירות הדילוג הופסק", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error stopping service: ${e.message}", e)
         }
     }
 
@@ -121,7 +147,13 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Log.e(TAG, "Error in onCreate: ${e.message}", e)
             Toast.makeText(this, "שגיאה באתחול האפליקציה", Toast.LENGTH_LONG).show()
+            registerReceiver(textDetectionReceiver, IntentFilter("TEXT_DETECTED_ACTION"))
         }
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        unregisterReceiver(textDetectionReceiver)
     }
 
     private fun initializeComponents() {
@@ -270,31 +302,43 @@ class MainActivity : ComponentActivity() {
 
     private fun startSkipperService() {
         Log.d(TAG, "Starting skipper service")
-        when {
-            selectedApps.value.isEmpty() -> {
-                Log.d(TAG, "No apps selected")
-                Toast.makeText(this, "נא לבחור לפחות אפליקציה אחת", Toast.LENGTH_SHORT).show()
-            }
-            selectedContent.value.isEmpty() -> {
-                Log.d(TAG, "No content selected")
-                Toast.makeText(this, "נא להזין לפחות תוכן אחד", Toast.LENGTH_SHORT).show()
-            }
-            !isAccessibilityServiceEnabled() -> {
-                Log.d(TAG, "Accessibility service not enabled")
-                startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
-                Toast.makeText(this, "אנא הפעל את שירות הנגישות של AdSkipper", Toast.LENGTH_LONG).show()
-            }
-            else -> {
-                saveServicePreferences()
-                startScreenCapture.launch(projectionManager.createScreenCaptureIntent())
-                isServiceRunning.value = true
-                Log.d(TAG, "Skipper service started")
-                Toast.makeText(this, "שירות הדילוג הופעל", Toast.LENGTH_SHORT).show()
-            }
+
+        if (!Settings.canDrawOverlays(this)) {
+            Log.d(TAG, "Missing overlay permission")
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+            Toast.makeText(this, "אנא אשר את ההרשאה להצגת חלונות מעל אפליקציות אחרות", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        if (!isAccessibilityServiceEnabled()) {
+            Log.d(TAG, "Accessibility service not enabled")
+            startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS))
+            Toast.makeText(this, "אנא הפעל את שירות הנגישות של AdSkipper", Toast.LENGTH_LONG).show()
+            return
+        }
+
+        try {
+            val serviceIntent = Intent(this, SkipperService::class.java)
+            startService(serviceIntent)
+            isServiceRunning.value = true
+            Log.d(TAG, "Service started successfully")
+            Toast.makeText(this, "השירות הופעל בהצלחה", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting service: ${e.message}", e)
+            Toast.makeText(this, "שגיאה בהפעלת השירות", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun startTextDetectionService(resultCode: Int, data: Intent) {
+        if (isServiceRunning(TextDetectionService::class.java)) {
+            Log.d(TAG, "Service is already running")
+            return
+        }
+
         val serviceIntent = Intent(this, TextDetectionService::class.java).apply {
             action = TextDetectionService.ACTION_START
             putExtra(TextDetectionService.EXTRA_RESULT_CODE, resultCode)
@@ -302,7 +346,20 @@ class MainActivity : ComponentActivity() {
             putExtra(TextDetectionService.EXTRA_TARGET_TEXT, selectedContent.value.firstOrNull() ?: "")
             putExtra(TextDetectionService.EXTRA_TARGET_PACKAGE, selectedApps.value.firstOrNull()?.packageName ?: "")
         }
-        startForegroundService(serviceIntent)
+
+        try {
+            startForegroundService(serviceIntent)
+            Log.d(TAG, "Service started successfully")
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting service: ${e.message}", e)
+            Toast.makeText(this, "שגיאה בהפעלת השירות", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun isServiceRunning(serviceClass: Class<*>): Boolean {
+        val manager = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        return manager.getRunningServices(Integer.MAX_VALUE)
+            .any { it.service.className == serviceClass.name }
     }
 
     private fun saveServicePreferences() {
@@ -318,19 +375,22 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun stopSkipperService() {
-        Log.d(TAG, "Stopping skipper service")
-        stopService(Intent(this, SkipperService::class.java))
-        stopService(Intent(this, TextDetectionService::class.java))
-        isServiceRunning.value = false
-        Toast.makeText(this, "שירות הדילוג הופסק", Toast.LENGTH_SHORT).show()
-    }
-
     private fun startRecording() {
-        Log.d(TAG, "Starting gesture recording")
-        gestureRecorder.startRecording()
-        isRecording.value = true
-        Toast.makeText(this, "מקליט פעולות...", Toast.LENGTH_SHORT).show()
+        Log.d(TAG, "Starting gesture recording request")
+        try {
+            if (isServiceRunning.value) {
+                gestureRecorder.startRecording()
+                isRecording.value = true
+                Log.d(TAG, "Recording started successfully")
+                Toast.makeText(this, "מקליט פעולות...", Toast.LENGTH_SHORT).show()
+            } else {
+                Log.d(TAG, "Cannot start recording - service is not running")
+                Toast.makeText(this, "אנא הפעל את השירות לפני תחילת ההקלטה", Toast.LENGTH_LONG).show()
+            }
+        } catch (e: Exception) {
+            Log.e(TAG, "Error starting recording: ${e.message}", e)
+            Toast.makeText(this, "שגיאה בהפעלת ההקלטה", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun stopRecording() {
