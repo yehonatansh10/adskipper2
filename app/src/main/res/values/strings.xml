@@ -12,8 +12,6 @@
     <string name="recognized_content_hint">התוכן שזוהה יופיע כאן</string>
     <string name="save_success">נשמר בהצלחה</string>
     <string name="save_error">שגיאה בשמירה</string>
-
-    <!-- Added strings for accessibility -->
     <string name="accessibility_enabled">שירות הנגישות מופעל</string>
     <string name="accessibility_disabled">שירות הנגישות כבוי</string>
     <string name="skip_ad_action">דילוג על פרסומת</string>
