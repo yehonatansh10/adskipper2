@@ -4,6 +4,7 @@ import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.AccessibilityServiceInfo
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.Point
 import android.graphics.Rect
 import android.util.Log
 import android.view.WindowManager
@@ -12,27 +13,54 @@ import android.view.accessibility.AccessibilityNodeInfo
 import android.os.Handler
 import android.os.Looper
 import android.content.Intent
-import android.util.DisplayMetrics
 import android.provider.Settings
 import android.net.Uri
+import android.content.Context
+import kotlin.math.abs
+import java.util.LinkedList
 
 class UnifiedSkipperService : AccessibilityService() {
+    private var lastContentHash = 0
+    private var currentContentHash = 0
+    private var processingTime = 0L
+    private var lastProcessedContent = ""
+    private var lastActionContent = ""
+    private var lastProcessedHash = 0
     private var displayWidth = 0
     private var displayHeight = 0
+    private var isPerformingAction = false
+    private var sponsoredSequenceCount = 0
+    private var lastSponsoredTime = 0L
+    private val SEQUENCE_TIMEOUT = 3000L  // 3 seconds timeout between sponsored content detections
     private val handler = Handler(Looper.getMainLooper())
     private var lastActionTime = 0L
-    private val ACTION_COOLDOWN = 2000L
     private var lastScrollResult = true
     private var retryCount = 0
     private val maxRetries = 3
+    private val resetActionTimer = Handler(Looper.getMainLooper())
+    private val resetTimer = Handler(Looper.getMainLooper())
+    private val resetRunnable = object : Runnable {
+        override fun run() {
+            if (isPerformingAction) {
+                Log.d(TAG, "Reset timer: forcing state reset")
+                isPerformingAction = false
+                lastScrollResult = true
+                lastActionTime = System.currentTimeMillis() - ACTION_COOLDOWN
+            }
+            resetTimer.postDelayed(this, 3000)
+        }
+    }
 
     companion object {
         private const val TAG = "UnifiedSkipperService"
-        private const val TARGET_TEXT = "sponsored"
+        private const val ACTION_COOLDOWN = 2000L
+        private const val MIN_CONTENT_LENGTH = 20
+        private const val PROCESSING_DELAY = 500L
     }
 
     override fun onCreate() {
         super.onCreate()
+        resetTimer.postDelayed(resetRunnable, 3000)
         Log.d(TAG, "Service created")
     }
 
@@ -51,11 +79,18 @@ class UnifiedSkipperService : AccessibilityService() {
     }
 
     private fun initializeDisplay() {
-        val wm = getSystemService(WindowManager::class.java)
-        val metrics = DisplayMetrics()
-        wm.defaultDisplay.getRealMetrics(metrics)
-        displayWidth = metrics.widthPixels
-        displayHeight = metrics.heightPixels
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val display = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.R) {
+            val metrics = wm.currentWindowMetrics
+            val bounds = metrics.bounds
+            Point(bounds.width(), bounds.height())
+        } else {
+            @Suppress("DEPRECATION")
+            Point().apply { wm.defaultDisplay.getRealSize(this) }
+        }
+
+        displayWidth = display.x
+        displayHeight = display.y
         Log.d(TAG, "Screen size configured: ${displayWidth}x${displayHeight}")
     }
 
@@ -82,140 +117,240 @@ class UnifiedSkipperService : AccessibilityService() {
         }
     }
 
-    private fun canPerformAction(): Boolean {
-        return Settings.canDrawOverlays(this) &&
-                displayWidth > 0 &&
-                displayHeight > 0
-    }
-
     private fun findCurrentVideoNode(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        val centerY = displayHeight / 2
-
         try {
-            for (i in 0 until rootNode.childCount) {
-                val child = rootNode.getChild(i) ?: continue
+            // חיפוש רקורסיבי לפי גודל ומיקום
+            fun findNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
                 val rect = Rect()
-                child.getBoundsInScreen(rect)
+                node.getBoundsInScreen(rect)
 
-                if (rect.top < centerY && rect.bottom > centerY) {
-                    return child
+                // חיפוש node גדול במרכז המסך
+                if (rect.height() > displayHeight / 2 &&
+                    rect.width() > displayWidth * 0.8 &&
+                    rect.centerY() in (displayHeight/3)..(displayHeight*2/3)) {
+                    return AccessibilityNodeInfo.obtain(node)
                 }
-                child.recycle()
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error finding current video node", e)
-        }
-        return null
-    }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.packageName == null || !canPerformAction()) return
-
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastActionTime < ACTION_COOLDOWN) {
-            return
-        }
-
-        if ((event.packageName == "com.zhiliaoapp.musically" ||
-                    event.packageName == "com.ss.android.ugc.trill") &&
-            event.eventType == AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED) {
-
-            val rootNode = rootInActiveWindow
-            if (rootNode != null) {
-                try {
-                    val currentVideoNode = findCurrentVideoNode(rootNode)
-                    if (currentVideoNode != null) {
-                        val text = getAllText(currentVideoNode)
-
-                        if (checkContent(text)) {
-                            if (lastScrollResult) {
-                                Log.d(TAG, "Found sponsored content in current video - executing scroll action")
-                                lastActionTime = currentTime
-                                retryCount = 0
-                                executeScrollAction()
-                            }
-                        }
-                        currentVideoNode.recycle()
+                // חיפוש בילדים
+                for (i in 0 until node.childCount) {
+                    val child = node.getChild(i) ?: continue
+                    val result = findNode(child)
+                    if (result != null) {
+                        child.recycle()
+                        return result
                     }
-                } finally {
-                    rootNode.recycle()
+                    child.recycle()
                 }
+                return null
             }
-        }
-    }
 
-    private fun checkContent(text: String): Boolean {
-        val normalizedText = text.lowercase().trim()
-        return normalizedText.contains(" $TARGET_TEXT ") ||
-                normalizedText.startsWith("$TARGET_TEXT ") ||
-                normalizedText.endsWith(" $TARGET_TEXT") ||
-                normalizedText.contains("\n$TARGET_TEXT\n")
+            return findNode(rootNode)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in findCurrentVideoNode: ${e.message}")
+            return null
+        }
     }
 
     private fun getAllText(node: AccessibilityNodeInfo): String {
-        val stringBuilder = StringBuilder()
-        try {
-            if (node.text != null) {
-                stringBuilder.append(" ${node.text} ")
+        val text = StringBuilder()
+
+        fun extractText(n: AccessibilityNodeInfo) {
+            if (!n.text.isNullOrEmpty()) {
+                text.append(n.text).append(" ")
             }
 
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i)
-                if (child != null) {
-                    try {
-                        stringBuilder.append(getAllText(child))
-                    } finally {
-                        child.recycle()
-                    }
-                }
+            // בדיקת contentDescription
+            if (!n.contentDescription.isNullOrEmpty()) {
+                text.append(n.contentDescription).append(" ")
             }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error getting text", e)
+
+            // חיפוש בילדים
+            for (i in 0 until n.childCount) {
+                val child = n.getChild(i) ?: continue
+                extractText(child)
+                child.recycle()
+            }
         }
-        return stringBuilder.toString()
+
+        try {
+            extractText(node)
+        } catch (e: Exception) {
+            Log.e(TAG, "Error extracting text: ${e.message}")
+        }
+
+        val result = text.toString().trim()
+        if (result.isNotEmpty()) {
+            Log.d(TAG, "Extracted text: $result")
+        }
+        return result
     }
 
-    private fun executeScrollAction() {
-        if (!canPerformAction()) {
-            Log.e(TAG, "Cannot perform action - missing permissions or invalid display size")
+    private fun canPerformAction(): Boolean {
+        val currentTime = System.currentTimeMillis()
+        val timeSinceLastAction = currentTime - lastActionTime
+
+        // בדיקה מחמירה יותר של מצב הפעולה
+        if (isPerformingAction) {
+            if (timeSinceLastAction > 3000) {
+                Log.d(TAG, "Resetting stuck performing state")
+                isPerformingAction = false
+            } else {
+                return false
+            }
+        }
+
+        if (timeSinceLastAction < ACTION_COOLDOWN) {
+            Log.d(TAG, "Action cooldown in effect: ${timeSinceLastAction}ms")
+            return false
+        }
+
+        val canDraw = Settings.canDrawOverlays(this)
+        val validDisplay = displayWidth > 0 && displayHeight > 0
+
+        return canDraw && validDisplay
+    }
+
+
+    private fun checkContent(text: String): Boolean {
+        if (text.isEmpty()) {
+            Log.d(TAG, "Empty text content")
+            return false
+        }
+
+        val normalizedText = text.lowercase().trim()
+        currentContentHash = normalizedText.hashCode()
+
+        // Check if content is identical to previous
+        if (currentContentHash == lastContentHash ||
+            currentContentHash == lastProcessedHash ||
+            normalizedText == lastProcessedContent) {
+            Log.d(TAG, "Skipping - content already processed")
+            return false
+        }
+
+        // Check cooldown period
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - lastActionTime < ACTION_COOLDOWN) {
+            Log.d(TAG, "Skipping - cooldown period")
+            return false
+        }
+
+        // Check for sponsored content
+        if (normalizedText.contains("sponsored")) {
+            Log.d(TAG, "Found sponsored content")
+
+            // Reset sequence if too much time has passed
+            if (currentTime - lastSponsoredTime > SEQUENCE_TIMEOUT) {
+                sponsoredSequenceCount = 0
+            }
+
+            sponsoredSequenceCount++
+            lastSponsoredTime = currentTime
+
+            // Only execute action on the second (middle) sponsored content detection
+            val shouldExecuteAction = sponsoredSequenceCount == 2
+
+            // Reset sequence after third detection
+            if (sponsoredSequenceCount >= 3) {
+                sponsoredSequenceCount = 0
+            }
+
+            lastContentHash = currentContentHash
+            lastProcessedContent = normalizedText
+            lastProcessedHash = currentContentHash
+
+            return shouldExecuteAction
+        }
+
+        lastContentHash = currentContentHash
+        return false
+    }
+
+    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (event?.packageName == null) return
+
+        if ((event.packageName != "com.zhiliaoapp.musically" &&
+                    event.packageName != "com.ss.android.ugc.trill")) {
             return
         }
 
+        val currentTime = System.currentTimeMillis()
+        if (currentTime - processingTime < PROCESSING_DELAY) {
+            return
+        }
+        processingTime = currentTime
+
         try {
+            val rootNode = rootInActiveWindow ?: return
+            val currentVideoNode = findCurrentVideoNode(rootNode)
+
+            if (currentVideoNode != null) {
+                val text = getAllText(currentVideoNode)
+
+                // שינוי: בדיקה והפעלת פעולה בנפרד
+                if (checkContent(text)) {
+                    if (canPerformAction()) {
+                        lastActionTime = System.currentTimeMillis()
+                        executeScrollAction()
+                    } else {
+                        Log.d(TAG, "Cannot perform action at this time")
+                    }
+                }
+
+                currentVideoNode.recycle()
+            }
+
+            rootNode.recycle()
+
+        } catch (e: Exception) {
+            Log.e(TAG, "Error in onAccessibilityEvent", e)
+        }
+    }
+
+    private fun executeScrollAction() {
+        try {
+            isPerformingAction = true
+            Log.d(TAG, "Creating scroll gesture for sequence ${sponsoredSequenceCount}")
+
+            // Only perform the actual scroll for sequence count 2
+            if (sponsoredSequenceCount != 2) {
+                Log.d(TAG, "Skipping scroll action for sequence ${sponsoredSequenceCount}")
+                isPerformingAction = false
+                return
+            }
+
             val path = Path().apply {
-                moveTo(displayWidth / 2f, displayHeight * 0.8f)
-                lineTo(displayWidth / 2f, displayHeight * 0.2f)
+                moveTo(displayWidth * 0.5f, displayHeight * 0.8f)
+                lineTo(displayWidth * 0.5f, displayHeight * 0.2f)
             }
 
             val gestureBuilder = GestureDescription.Builder()
                 .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
                 .build()
 
-            val callback = object : GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription) {
-                    lastScrollResult = true
-                    retryCount = 0
-                    Log.d(TAG, "Scroll completed successfully")
+            val result = dispatchGesture(gestureBuilder, object : GestureResultCallback() {
+                override fun onCompleted(gestureDescription: GestureDescription?) {
+                    Log.d(TAG, "Scroll completed for sequence ${sponsoredSequenceCount}")
+                    handler.postDelayed({
+                        isPerformingAction = false
+                        lastProcessedHash = currentContentHash
+                    }, 500)
                 }
 
-                override fun onCancelled(gestureDescription: GestureDescription) {
-                    if (retryCount < maxRetries) {
-                        retryCount++
-                        Log.d(TAG, "Scroll cancelled, retrying attempt $retryCount")
-                        handler.postDelayed({ executeScrollAction() }, 500)
-                    } else {
-                        lastScrollResult = false
-                        retryCount = 0
-                        Log.e(TAG, "Scroll failed after $maxRetries attempts")
-                    }
+                override fun onCancelled(gestureDescription: GestureDescription?) {
+                    Log.e(TAG, "Scroll cancelled")
+                    isPerformingAction = false
                 }
+            }, null)
+
+            if (!result) {
+                Log.e(TAG, "Failed to dispatch scroll gesture")
+                isPerformingAction = false
             }
 
-            dispatchGesture(gestureBuilder, callback, null)
         } catch (e: Exception) {
-            Log.e(TAG, "Error executing scroll", e)
-            lastScrollResult = false
-            retryCount = 0
+            Log.e(TAG, "Error executing scroll: ${e.message}")
+            isPerformingAction = false
         }
     }
 
@@ -225,6 +360,7 @@ class UnifiedSkipperService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        resetTimer.removeCallbacks(resetRunnable)
         Log.d(TAG, "Service destroyed")
     }
 }

@@ -104,8 +104,17 @@ class MainActivity : ComponentActivity() {
             initializeComponents()
             setupUI()
             setupTouchListener()
-            checkRequiredPermissions()
-            checkServiceStatus() // בדיקת סטטוס השירות בהפעלה
+
+            // בדיקת הרשאות בהפעלה
+            if (!Settings.canDrawOverlays(this)) {
+                requestOverlayPermission()
+            }
+
+            if (!isAccessibilityServiceEnabled()) {
+                requestAccessibilityPermission()
+            }
+
+            checkServiceStatus()
         } catch (e: Exception) {
             Log.e(TAG, "Error in onCreate: ${e.message}", e)
             Toast.makeText(this, "שגיאה באתחול האפליקציה", Toast.LENGTH_LONG).show()
@@ -211,48 +220,38 @@ class MainActivity : ComponentActivity() {
     private fun startSkipperService() {
         Log.d(TAG, "Starting skipper service")
 
-        if (!checkAllPermissions()) {
+        if (!Settings.canDrawOverlays(this) || !isAccessibilityServiceEnabled()) {
+            Log.d(TAG, "Missing permissions, requesting...")
+            checkAllPermissions()
             return
         }
 
         try {
-            val serviceIntent = Intent(this, UnifiedSkipperService::class.java).apply {
-                putExtra("selected_apps", ArrayList(selectedApps.value.map { it.packageName }))
-                putExtra("target_texts", ArrayList(TARGET_TEXTS))
+            val serviceIntent = Intent(this, UnifiedSkipperService::class.java)
+            if (!isServiceRunning(UnifiedSkipperService::class.java)) {
+                startService(serviceIntent)
+                Log.d(TAG, "Service started")
+            } else {
+                Log.d(TAG, "Service already running")
             }
-
-            if (isServiceRunning(UnifiedSkipperService::class.java)) {
-                Log.d(TAG, "Service is already running")
-                isServiceRunning.value = true
-                Toast.makeText(this, "השירות כבר פעיל", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            startService(serviceIntent)
             isServiceRunning.value = true
-            Toast.makeText(this, "שירות הדילוג הופעל", Toast.LENGTH_SHORT).show()
-            Log.d(TAG, "Service started successfully")
             saveServicePreferences()
-
         } catch (e: Exception) {
             Log.e(TAG, "Failed to start service", e)
-            isServiceRunning.value = false
-            Toast.makeText(
-                this,
-                "שגיאה בהפעלת השירות: ${e.localizedMessage}",
-                Toast.LENGTH_LONG
-            ).show()
+            Toast.makeText(this, "שגיאה בהפעלת השירות", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun checkAllPermissions(): Boolean {
-        if (!isAccessibilityServiceEnabled()) {
-            requestAccessibilityPermission()
+        // בדיקה אם יש הרשאת SYSTEM_ALERT_WINDOW
+        if (!Settings.canDrawOverlays(this)) {
+            requestOverlayPermission()
             return false
         }
 
-        if (!Settings.canDrawOverlays(this)) {
-            requestOverlayPermission()
+        // בדיקה אם שירות הנגישות מופעל
+        if (!isAccessibilityServiceEnabled()) {
+            requestAccessibilityPermission()
             return false
         }
 
@@ -317,11 +316,10 @@ class MainActivity : ComponentActivity() {
                 Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
                 Uri.parse("package:$packageName")
             )
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)
             Toast.makeText(
                 this,
-                "אנא אשר הרשאת תצוגה מעל אפליקציות אחרות",
+                "אנא אשר הרשאת תצוגה מעל אפליקציות אחרות וחזור לאפליקציה",
                 Toast.LENGTH_LONG
             ).show()
         } catch (e: Exception) {
