@@ -31,7 +31,7 @@ class UnifiedSkipperService : AccessibilityService() {
     private var isPerformingAction = false
     private var sponsoredSequenceCount = 0
     private var lastSponsoredTime = 0L
-    private val SEQUENCE_TIMEOUT = 3000L  // 3 seconds timeout between sponsored content detections
+    private val SEQUENCE_TIMEOUT = 2000L  // 3 seconds timeout between sponsored content detections
     private val handler = Handler(Looper.getMainLooper())
     private var lastActionTime = 0L
     private var lastScrollResult = true
@@ -53,9 +53,9 @@ class UnifiedSkipperService : AccessibilityService() {
 
     companion object {
         private const val TAG = "UnifiedSkipperService"
-        private const val ACTION_COOLDOWN = 2000L
+        private const val ACTION_COOLDOWN = 1000L
         private const val MIN_CONTENT_LENGTH = 20
-        private const val PROCESSING_DELAY = 500L
+        private const val PROCESSING_DELAY = 250L
     }
 
     override fun onCreate() {
@@ -101,7 +101,7 @@ class UnifiedSkipperService : AccessibilityService() {
             flags = AccessibilityServiceInfo.FLAG_REPORT_VIEW_IDS or
                     AccessibilityServiceInfo.FLAG_RETRIEVE_INTERACTIVE_WINDOWS or
                     AccessibilityServiceInfo.FLAG_INCLUDE_NOT_IMPORTANT_VIEWS
-            notificationTimeout = 100
+            notificationTimeout = 50
         }
         serviceInfo = info
     }
@@ -325,7 +325,7 @@ class UnifiedSkipperService : AccessibilityService() {
             }
 
             val gestureBuilder = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 300))
+                .addStroke(GestureDescription.StrokeDescription(path, 0, 200))
                 .build()
 
             val result = dispatchGesture(gestureBuilder, object : GestureResultCallback() {
@@ -334,7 +334,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     handler.postDelayed({
                         isPerformingAction = false
                         lastProcessedHash = currentContentHash
-                    }, 500)
+                    }, 250)
                 }
 
                 override fun onCancelled(gestureDescription: GestureDescription?) {
