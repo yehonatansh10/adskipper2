@@ -36,6 +36,8 @@ class UnifiedSkipperService : AccessibilityService() {
     private var lastActionTime = 0L
     private var lastScrollResult = true
     private var retryCount = 0
+    private var lastMainPostContent = ""
+    private var currentVideoNode: AccessibilityNodeInfo? = null
     private val maxRetries = 3
     private val resetActionTimer = Handler(Looper.getMainLooper())
     private val resetTimer = Handler(Looper.getMainLooper())
@@ -119,19 +121,12 @@ class UnifiedSkipperService : AccessibilityService() {
 
     private fun findCurrentVideoNode(rootNode: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         try {
-            // חיפוש רקורסיבי לפי גודל ומיקום
             fun findNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-                val rect = Rect()
-                node.getBoundsInScreen(rect)
-
-                // חיפוש node גדול במרכז המסך
-                if (rect.height() > displayHeight / 2 &&
-                    rect.width() > displayWidth * 0.8 &&
-                    rect.centerY() in (displayHeight/3)..(displayHeight*2/3)) {
-                    return AccessibilityNodeInfo.obtain(node)
+                if (isNodeVisible(node)) {
+                    currentVideoNode = AccessibilityNodeInfo.obtain(node)
+                    return currentVideoNode
                 }
 
-                // חיפוש בילדים
                 for (i in 0 until node.childCount) {
                     val child = node.getChild(i) ?: continue
                     val result = findNode(child)
@@ -144,11 +139,29 @@ class UnifiedSkipperService : AccessibilityService() {
                 return null
             }
 
-            return findNode(rootNode)
+            val result = findNode(rootNode)
+            if (result == null) {
+                currentVideoNode = null
+            }
+            return result
         } catch (e: Exception) {
             Log.e(TAG, "Error in findCurrentVideoNode: ${e.message}")
+            currentVideoNode = null
             return null
         }
+    }
+
+    private fun isNodeVisible(node: AccessibilityNodeInfo): Boolean {
+        val rect = Rect()
+        node.getBoundsInScreen(rect)
+
+        // בדיקה האם ה-node נמצא במרכז המסך
+        val centerY = rect.centerY()
+        val screenCenterY = displayHeight / 2
+
+        return abs(centerY - screenCenterY) < displayHeight / 4 && // רבע מגובה המסך סטייה מקסימלית
+                rect.height() > displayHeight / 2 && // גודל מינימלי
+                rect.width() > displayWidth * 0.8   // רוחב מינימלי
     }
 
     private fun getAllText(node: AccessibilityNodeInfo): String {
@@ -220,7 +233,7 @@ class UnifiedSkipperService : AccessibilityService() {
         val normalizedText = text.lowercase().trim()
         currentContentHash = normalizedText.hashCode()
 
-        // Check if content is identical to previous
+        // בדיקה האם התוכן זהה לקודם
         if (currentContentHash == lastContentHash ||
             currentContentHash == lastProcessedHash ||
             normalizedText == lastProcessedContent) {
@@ -228,16 +241,46 @@ class UnifiedSkipperService : AccessibilityService() {
             return false
         }
 
-        // Check cooldown period
+        // בדיקת תקופת המתנה
         val currentTime = System.currentTimeMillis()
         if (currentTime - lastActionTime < ACTION_COOLDOWN) {
             Log.d(TAG, "Skipping - cooldown period")
             return false
         }
 
-        // Check for sponsored content
-        if (normalizedText.contains("sponsored")) {
-            Log.d(TAG, "Found sponsored content")
+        // מעקב אחר הפוסט הנוכחי
+        val isCurrentPost = normalizedText.length > MIN_CONTENT_LENGTH &&
+                !normalizedText.contains("sponsored", ignoreCase = true) &&
+                currentVideoNode?.let { isNodeVisible(it) } == true
+
+        if (isCurrentPost) {
+            // שמירת המצב הנוכחי לשימוש בהמשך
+            lastMainPostContent = normalizedText
+            Log.d(TAG, "Current main post content updated")
+        }
+
+        // קבלת המילים השמורות מה-SharedPreferences
+        val prefs = getSharedPreferences("targets", Context.MODE_PRIVATE)
+        val targetWords = prefs.all.values
+            .filterIsInstance<String>()
+            .filter { it.isNotEmpty() }
+            .map { it.lowercase().trim() }
+
+        // בדיקה האם הטקסט מכיל אחת מהמילים המוגדרות
+        val foundTarget = targetWords.any { target ->
+            normalizedText.contains(target)
+        }
+
+        if (foundTarget) {
+            Log.d(TAG, "Found target word in content")
+
+            // וידוא שהמילה לא נמצאת בפוסט הראשי
+            if (lastMainPostContent.isNotEmpty() &&
+                targetWords.any { lastMainPostContent.contains(it) }) {
+                Log.d(TAG, "Target word found in main post - skipping action")
+                lastContentHash = currentContentHash
+                return false
+            }
 
             // Reset sequence if too much time has passed
             if (currentTime - lastSponsoredTime > SEQUENCE_TIMEOUT) {
@@ -247,7 +290,7 @@ class UnifiedSkipperService : AccessibilityService() {
             sponsoredSequenceCount++
             lastSponsoredTime = currentTime
 
-            // Only execute action on the second (middle) sponsored content detection
+            // Only execute action on the second detection
             val shouldExecuteAction = sponsoredSequenceCount == 2
 
             // Reset sequence after third detection

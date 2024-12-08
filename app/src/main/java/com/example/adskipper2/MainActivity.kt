@@ -135,15 +135,14 @@ class MainActivity : ComponentActivity() {
         if (!prefs.contains("selected_apps")) {
             prefs.edit().apply {
                 putStringSet("selected_apps", setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill"))
-                TARGET_TEXTS.forEach { text ->
-                    putString("com.zhiliaoapp.musically_text", text)
-                    putString("com.ss.android.ugc.trill_text", text)
-                }
+                // הוספת מילת ברירת מחדל
+                putString("com.zhiliaoapp.musically_target_sponsored", "sponsored")
+                putString("com.ss.android.ugc.trill_target_sponsored", "sponsored")
                 apply()
             }
         }
-        // טעינת ההעדפות השמורות
         loadSavedPreferences()
+        loadSavedTargetWords()
     }
 
     private fun loadSavedPreferences() {
@@ -339,12 +338,31 @@ class MainActivity : ComponentActivity() {
     private fun saveTargetText(text: String) {
         Log.d(TAG, "Saving target text: $text")
         selectedContent.value = selectedContent.value + text
+
+        // שמירת המילה עבור כל אפליקציה נבחרת
         prefs.edit().apply {
             selectedApps.value.forEach { app ->
-                putString("${app.packageName}_text", text)
+                // שמירת המילה עם מזהה ייחודי
+                putString("${app.packageName}_target_${text.hashCode()}", text)
             }
             apply()
         }
+
+        // רענון השירות
+        if (isServiceRunning.value) {
+            stopSkipperService()
+            startSkipperService()
+        }
+    }
+
+    private fun loadSavedTargetWords() {
+        val words = mutableSetOf<String>()
+        selectedApps.value.forEach { app ->
+            prefs.all.entries
+                .filter { it.key.startsWith("${app.packageName}_target_") }
+                .mapNotNullTo(words) { it.value as? String }
+        }
+        selectedContent.value = words
     }
 
     private fun checkStoragePermission() =
