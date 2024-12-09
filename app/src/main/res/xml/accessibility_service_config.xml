@@ -2,10 +2,16 @@
 <accessibility-service xmlns:android="http://schemas.android.com/apk/res/android"
     android:description="@string/accessibility_service_description"
     android:packageNames="com.zhiliaoapp.musically,com.ss.android.ugc.trill"
-    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewClicked"
-    android:accessibilityFlags="flagReportViewIds|flagRetrieveInteractiveWindows|flagIncludeNotImportantViews"
+    android:accessibilityEventTypes="typeWindowContentChanged|typeWindowStateChanged|typeViewClicked|typeViewScrolled"
+    android:accessibilityFlags="flagReportViewIds|
+                             flagRetrieveInteractiveWindows|
+                             flagIncludeNotImportantViews|
+                             flagRequestTouchExplorationMode|
+                             flagRequestFilterKeyEvents|
+                             flagDefault"
     android:accessibilityFeedbackType="feedbackGeneric"
-    android:notificationTimeout="50"
+    android:notificationTimeout="100"
     android:canRetrieveWindowContent="true"
     android:canRequestFilterKeyEvents="true"
-    android:canPerformGestures="true"/>
+    android:canPerformGestures="true"
+    android:settingsActivity="com.example.adskipper2.MainActivity"/>

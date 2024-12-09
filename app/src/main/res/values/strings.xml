@@ -1,5 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
+    <!-- מחרוזות קיימות -->
     <string name="app_name">Adskipper2</string>
     <string name="adskipper2">Adskipper2</string>
     <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
@@ -17,4 +18,23 @@
     <string name="skip_ad_action">דילוג על פרסומת</string>
     <string name="ad_detected">זוהתה פרסומת</string>
     <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
+
+    <!-- מחרוזות חדשות -->
+    <string name="accessibility_service_label">AdSkipper - דילוג אוטומטי</string>
+    <string name="service_running">השירות פעיל</string>
+    <string name="service_stopped">השירות מושבת</string>
+    <string name="scanning_active">סריקה פעילה</string>
+    <string name="scanning_paused">סריקה מושהית</string>
+    <string name="scroll_success">בוצעה גלילה</string>
+    <string name="scroll_error">שגיאה בביצוע גלילה</string>
+    <string name="permissions_required">נדרשות הרשאות נוספות</string>
+    <string name="overlay_permission_required">נדרשת הרשאת שכבה-עליונה</string>
+    <string name="start_service">הפעל שירות</string>
+    <string name="stop_service">עצור שירות</string>
+    <string name="auto_scroll">גלילה אוטומטית</string>
+    <string name="manual_scroll">גלילה ידנית</string>
+    <string name="detection_sensitivity">רגישות זיהוי</string>
+    <string name="scanning_interval">מרווח סריקה</string>
+    <string name="target_apps">אפליקציות מטרה</string>
+    <string name="target_text">טקסט לזיהוי</string>
 </resources>
