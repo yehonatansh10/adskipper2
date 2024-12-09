@@ -7,6 +7,8 @@ import android.graphics.Path
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
+import android.view.MotionEvent
+import android.view.accessibility.AccessibilityEvent
 
 class GesturePlayer(private val context: Context) {
     private var accessibilityService: AccessibilityService? = null
