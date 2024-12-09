@@ -20,6 +20,7 @@ import kotlin.math.abs
 import java.util.LinkedList
 
 class UnifiedSkipperService : AccessibilityService() {
+    private var sequenceCount = 0  // בחלק של המשתנים הגלובליים
     private var lastContentHash = 0
     private var currentContentHash = 0
     private var processingTime = 0L
@@ -31,6 +32,8 @@ class UnifiedSkipperService : AccessibilityService() {
     private var isPerformingAction = false
     private var sponsoredSequenceCount = 0
     private var lastSponsoredTime = 0L
+    private var currentScrollState = 0  // 0 = לא גולל, 1 = גלילה ראשונה, 2 = גלילה אמצעית, 3 = גלילה אחרונה
+    private val TOTAL_SCROLL_SEQUENCE = 3
     private val SEQUENCE_TIMEOUT = 2000L  // 3 seconds timeout between sponsored content detections
     private val handler = Handler(Looper.getMainLooper())
     private var lastActionTime = 0L
@@ -55,9 +58,9 @@ class UnifiedSkipperService : AccessibilityService() {
 
     companion object {
         private const val TAG = "UnifiedSkipperService"
-        private const val ACTION_COOLDOWN = 1000L
-        private const val MIN_CONTENT_LENGTH = 20
-        private const val PROCESSING_DELAY = 250L
+        private const val ACTION_COOLDOWN = 500L
+        private const val MIN_CONTENT_LENGTH = 10
+        private const val PROCESSING_DELAY = 150L
     }
 
     override fun onCreate() {
@@ -155,13 +158,12 @@ class UnifiedSkipperService : AccessibilityService() {
         val rect = Rect()
         node.getBoundsInScreen(rect)
 
-        // בדיקה האם ה-node נמצא במרכז המסך
         val centerY = rect.centerY()
         val screenCenterY = displayHeight / 2
 
-        return abs(centerY - screenCenterY) < displayHeight / 4 && // רבע מגובה המסך סטייה מקסימלית
-                rect.height() > displayHeight / 2 && // גודל מינימלי
-                rect.width() > displayWidth * 0.8   // רוחב מינימלי
+        return abs(centerY - screenCenterY) < displayHeight / 5 && // להקטין את טווח הסטייה
+                rect.height() > displayHeight / 2.2 && // להגדיל את דרישת הגודל המינימלי
+                rect.width() > displayWidth * 0.85   // להגדיל את דרישת הרוחב המינימלי
     }
 
     private fun getAllText(node: AccessibilityNodeInfo): String {
@@ -233,79 +235,32 @@ class UnifiedSkipperService : AccessibilityService() {
         val normalizedText = text.lowercase().trim()
         currentContentHash = normalizedText.hashCode()
 
-        // בדיקה האם התוכן זהה לקודם
-        if (currentContentHash == lastContentHash ||
-            currentContentHash == lastProcessedHash ||
-            normalizedText == lastProcessedContent) {
-            Log.d(TAG, "Skipping - content already processed")
+        // בדיקה אם התוכן כבר עובד
+        if (currentContentHash == lastProcessedHash) {
+            Log.d(TAG, "Skipping - exact content match")
             return false
         }
 
-        // בדיקת תקופת המתנה
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - lastActionTime < ACTION_COOLDOWN) {
-            Log.d(TAG, "Skipping - cooldown period")
-            return false
+        // בדיקת מילות מפתח לפרסומות
+        val adKeywords = setOf(
+            "sponsored",
+            "promoted",
+            "מודעה",
+            "פרסומת",
+            "campaigns",
+            "promoted music"
+        )
+
+        val isAd = adKeywords.any { keyword ->
+            normalizedText.contains(keyword)
         }
 
-        // מעקב אחר הפוסט הנוכחי
-        val isCurrentPost = normalizedText.length > MIN_CONTENT_LENGTH &&
-                !normalizedText.contains("sponsored", ignoreCase = true) &&
-                currentVideoNode?.let { isNodeVisible(it) } == true
-
-        if (isCurrentPost) {
-            // שמירת המצב הנוכחי לשימוש בהמשך
-            lastMainPostContent = normalizedText
-            Log.d(TAG, "Current main post content updated")
-        }
-
-        // קבלת המילים השמורות מה-SharedPreferences
-        val prefs = getSharedPreferences("targets", Context.MODE_PRIVATE)
-        val targetWords = prefs.all.values
-            .filterIsInstance<String>()
-            .filter { it.isNotEmpty() }
-            .map { it.lowercase().trim() }
-
-        // בדיקה האם הטקסט מכיל אחת מהמילים המוגדרות
-        val foundTarget = targetWords.any { target ->
-            normalizedText.contains(target)
-        }
-
-        if (foundTarget) {
-            Log.d(TAG, "Found target word in content")
-
-            // וידוא שהמילה לא נמצאת בפוסט הראשי
-            if (lastMainPostContent.isNotEmpty() &&
-                targetWords.any { lastMainPostContent.contains(it) }) {
-                Log.d(TAG, "Target word found in main post - skipping action")
-                lastContentHash = currentContentHash
-                return false
-            }
-
-            // Reset sequence if too much time has passed
-            if (currentTime - lastSponsoredTime > SEQUENCE_TIMEOUT) {
-                sponsoredSequenceCount = 0
-            }
-
-            sponsoredSequenceCount++
-            lastSponsoredTime = currentTime
-
-            // Only execute action on the second detection
-            val shouldExecuteAction = sponsoredSequenceCount == 2
-
-            // Reset sequence after third detection
-            if (sponsoredSequenceCount >= 3) {
-                sponsoredSequenceCount = 0
-            }
-
-            lastContentHash = currentContentHash
-            lastProcessedContent = normalizedText
+        if (isAd) {
+            Log.d(TAG, "Found advertisement content")
             lastProcessedHash = currentContentHash
-
-            return shouldExecuteAction
+            return true  // תמיד נחזיר true כשיש פרסומת ונתן ל-executeScrollAction לטפל ברצף
         }
 
-        lastContentHash = currentContentHash
         return false
     }
 
@@ -332,11 +287,12 @@ class UnifiedSkipperService : AccessibilityService() {
 
                 // שינוי: בדיקה והפעלת פעולה בנפרד
                 if (checkContent(text)) {
-                    if (canPerformAction()) {
-                        lastActionTime = System.currentTimeMillis()
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastActionTime >= ACTION_COOLDOWN && canPerformAction()) {
+                        lastActionTime = currentTime
                         executeScrollAction()
                     } else {
-                        Log.d(TAG, "Cannot perform action at this time")
+                        Log.d(TAG, "Skipping action - cooldown or cannot perform")
                     }
                 }
 
@@ -352,48 +308,65 @@ class UnifiedSkipperService : AccessibilityService() {
 
     private fun executeScrollAction() {
         try {
-            isPerformingAction = true
-            Log.d(TAG, "Creating scroll gesture for sequence ${sponsoredSequenceCount}")
-
-            // Only perform the actual scroll for sequence count 2
-            if (sponsoredSequenceCount != 2) {
-                Log.d(TAG, "Skipping scroll action for sequence ${sponsoredSequenceCount}")
-                isPerformingAction = false
+            if (isPerformingAction) {
+                Log.d(TAG, "Already performing action")
                 return
             }
 
-            val path = Path().apply {
-                moveTo(displayWidth * 0.5f, displayHeight * 0.8f)
-                lineTo(displayWidth * 0.5f, displayHeight * 0.2f)
+            isPerformingAction = true
+
+            // פעולה ראשונה ריקה
+            if (currentScrollState == 0) {
+                Log.d(TAG, "Executing empty first action")
+                handler.postDelayed({
+                    isPerformingAction = false
+                    currentScrollState = 1  // מעבר לפעולה השניה
+                    executeScrollAction()  // קריאה רקורסיבית לפעולה השניה
+                }, 100)
+                return
             }
 
-            val gestureBuilder = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 200))
-                .build()
+            // פעולה שניה - גלילה אמיתית
+            if (currentScrollState == 1) {
+                Log.d(TAG, "Executing actual scroll")
 
-            val result = dispatchGesture(gestureBuilder, object : GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription?) {
-                    Log.d(TAG, "Scroll completed for sequence ${sponsoredSequenceCount}")
-                    handler.postDelayed({
+                val path = Path().apply {
+                    moveTo(displayWidth * 0.5f, displayHeight * 0.85f)
+                    lineTo(displayWidth * 0.5f, displayHeight * 0.15f)
+                }
+
+                val gestureBuilder = GestureDescription.Builder()
+                    .addStroke(GestureDescription.StrokeDescription(path, 0, 120))
+                    .build()
+
+                val result = dispatchGesture(gestureBuilder, object : GestureResultCallback() {
+                    override fun onCompleted(gestureDescription: GestureDescription?) {
+                        Log.d(TAG, "Scroll completed")
+                        handler.postDelayed({
+                            isPerformingAction = false
+                            lastActionTime = System.currentTimeMillis()
+                            currentScrollState = 0  // איפוס המצב לקראת הזיהוי הבא
+                        }, 150)
+                    }
+
+                    override fun onCancelled(gestureDescription: GestureDescription?) {
+                        Log.e(TAG, "Scroll cancelled")
                         isPerformingAction = false
-                        lastProcessedHash = currentContentHash
-                    }, 250)
-                }
+                        currentScrollState = 0
+                    }
+                }, null)
 
-                override fun onCancelled(gestureDescription: GestureDescription?) {
-                    Log.e(TAG, "Scroll cancelled")
+                if (!result) {
+                    Log.e(TAG, "Failed to dispatch gesture")
                     isPerformingAction = false
+                    currentScrollState = 0
                 }
-            }, null)
-
-            if (!result) {
-                Log.e(TAG, "Failed to dispatch scroll gesture")
-                isPerformingAction = false
             }
 
         } catch (e: Exception) {
             Log.e(TAG, "Error executing scroll: ${e.message}")
             isPerformingAction = false
+            currentScrollState = 0
         }
     }
 
