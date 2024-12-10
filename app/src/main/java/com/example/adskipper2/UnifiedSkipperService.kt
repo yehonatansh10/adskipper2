@@ -3,139 +3,209 @@ package com.example.adskipper2
 import android.accessibilityservice.AccessibilityService
 import android.accessibilityservice.GestureDescription
 import android.graphics.Path
+import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.widget.Toast
+import android.view.accessibility.AccessibilityWindowInfo
 
 class UnifiedSkipperService : AccessibilityService() {
-    private var isPerformingAction = false
-    private var lastProcessedHash = ""
-    private var lastActionTime = 0L
-    private var processingTime = 0L
-    private var isActivelyScanning = true
-    private val handler = Handler(Looper.getMainLooper())
-    private var displayWidth = 0
-    private var displayHeight = 0
-
     companion object {
         private const val TAG = "UnifiedSkipperService"
-        private const val PROCESSING_DELAY = 1000L
         private const val ACTION_COOLDOWN = 2000L
     }
 
+    private var isPerformingAction = false
+    private var displayWidth = 0
+    private var displayHeight = 0
+    private val handler = Handler(Looper.getMainLooper())
+    private var lastActionTime = 0L
+    private var lastScrollTime = 0L
+    private val SCROLL_COOLDOWN = 3000L // 3 שניות המתנה בין דילוגים
+    private var isScrolling = false
+
+    // המילים שאנחנו מחפשים
+    private val adKeywords = listOf(
+        "sponsored",
+        "Sponsored"
+    )
+
     override fun onServiceConnected() {
         super.onServiceConnected()
-        val display = this.resources.displayMetrics
+        val display = resources.displayMetrics
         displayWidth = display.widthPixels
         displayHeight = display.heightPixels
-        isActivelyScanning = true
+        Log.d(TAG, "Service connected with dimensions: $displayWidth x $displayHeight")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (!isActivelyScanning) return
-        if (event?.packageName == null) return
-
-        val currentTime = System.currentTimeMillis()
-        if (currentTime - processingTime < PROCESSING_DELAY) {
+        if (event?.packageName != "com.zhiliaoapp.musically") {
             return
         }
-        processingTime = currentTime
 
+        if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && !isPerformingAction) {
+            checkContent()
+        }
+    }
+
+    private fun checkContent() {
         try {
-            val rootNode = rootInActiveWindow ?: return
-            val text = getAllText(rootNode)
+            if (isScrolling) {
+                Log.d(TAG, "Still scrolling, skipping check")
+                return
+            }
 
-            if (checkContent(text)) {
-                if (canPerformAction()) {
-                    lastActionTime = System.currentTimeMillis()
-                    executeScrollAction()
-                    isActivelyScanning = false
+            val windows = windows
+            var sponsoredNode: AccessibilityNodeInfo? = null
+
+            windows?.forEach { window ->
+                if (window.type == AccessibilityWindowInfo.TYPE_APPLICATION) {
+                    window.root?.let { node ->
+                        sponsoredNode = findSponsoredNode(node)
+                        if (sponsoredNode != null) return@forEach
+                    }
                 }
-            } else {
-                isActivelyScanning = false
             }
 
-            rootNode.recycle()
+            if (sponsoredNode != null) {
+                val bounds = Rect()
+                sponsoredNode?.getBoundsInScreen(bounds)
+
+                val centerY = displayHeight / 2
+                // הגדלת טווח הטולרנס
+                val tolerance = displayHeight / 2  // שינוי מ-4 ל-2 (חצי מסך)
+
+                // הוספת לוג לדיבוג
+                Log.d(TAG, "Checking position - Bounds: ${bounds.centerY()}, " +
+                        "Center: $centerY, " +
+                        "Tolerance: $tolerance, " +
+                        "Range: ${centerY - tolerance} to ${centerY + tolerance}")
+
+                if (bounds.centerY() > 0 && // וידוא שהמיקום חיובי
+                    bounds.centerY() < displayHeight && // וידוא שהמיקום בתוך המסך
+                    bounds.centerY() in (centerY - tolerance)..(centerY + tolerance)) {
+
+                    val currentTime = System.currentTimeMillis()
+                    if (currentTime - lastScrollTime > SCROLL_COOLDOWN) {
+                        Log.d(TAG, "Found ad in valid position - initiating scroll")
+                        lastScrollTime = currentTime
+                        performScroll()
+                    } else {
+                        Log.d(TAG, "Found ad but in cooldown period. Waiting...")
+                    }
+                } else {
+                    Log.d(TAG, "Found ad but not in valid position. " +
+                            "Position: ${bounds.centerY()}, " +
+                            "Center: $centerY, " +
+                            "Valid range: ${centerY - tolerance} to ${centerY + tolerance}")
+                }
+            }
+
+            sponsoredNode?.recycle()
         } catch (e: Exception) {
-            Log.e(TAG, "Error in onAccessibilityEvent", e)
+            Log.e(TAG, "Error in checkContent", e)
         }
     }
 
-    private fun getAllText(node: AccessibilityNodeInfo): String {
-        val text = StringBuilder()
+    private fun findSponsoredNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
         try {
-            if (node.text != null) {
-                text.append(node.text)
+            // הרחבת רשימת מילות המפתח לזיהוי פרסומות
+            val adKeywords = listOf(
+                "sponsored",
+                "Sponsored",
+                "מוּדעָה",
+                "ממומן",
+                "Ad",
+                "ad",
+                "广告",  // סינית
+                "Sponsorisé", // צרפתית
+                "Patrocinado", // ספרדית
+                "Gesponsert"  // גרמנית
+            )
+
+            // בדיקת ContentDescription בנוסף לטקסט
+            val text = node.text?.toString() ?: ""
+            val contentDesc = node.contentDescription?.toString() ?: ""
+
+            // בדיקה אם יש התאמה באחד מהשדות
+            if (adKeywords.any { keyword ->
+                    text.contains(keyword) || contentDesc.contains(keyword)
+                }) {
+                Log.d(TAG, "Found ad indicator - Text: $text, ContentDesc: $contentDesc")
+                return node
             }
 
+            // בדיקת ילדים באופן רקורסיבי עם שיפור בניהול משאבים
             for (i in 0 until node.childCount) {
-                val child = node.getChild(i) ?: continue
-                text.append(getAllText(child))
-                child.recycle()
+                val child = node.getChild(i)
+                if (child != null) {
+                    try {
+                        val result = findSponsoredNode(child)
+                        if (result != null) {
+                            return result
+                        }
+                    } finally {
+                        child.recycle()  // וידוא שחרור משאבים
+                    }
+                }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error getting text from node", e)
+            Log.e(TAG, "Error in findSponsoredNode", e)
         }
-        return text.toString()
+        return null
     }
 
-    private fun checkContent(text: String): Boolean {
-        // כאן תוסיף את הלוגיקה לבדיקת הטקסט הרצוי
-        // לדוגמה:
-        return text.contains("מודעה", ignoreCase = true) ||
-                text.contains("sponsored", ignoreCase = true)
-    }
+    private fun performScroll() {
+        if (isScrolling) {
+            Log.d(TAG, "Already scrolling, ignoring request")
+            return
+        }
 
-    private fun canPerformAction(): Boolean {
-        val currentTime = System.currentTimeMillis()
-        return !isPerformingAction &&
-                (currentTime - lastActionTime > ACTION_COOLDOWN)
-    }
-
-    fun resumeScanning() {
-        isActivelyScanning = true
-        processingTime = 0L
-    }
-
-    private fun executeScrollAction() {
         try {
-            isPerformingAction = true
+            isScrolling = true
+            Log.d(TAG, "Starting scroll motion")
 
             val path = Path().apply {
-                moveTo(displayWidth * 0.5f, displayHeight * 0.8f)
-                lineTo(displayWidth * 0.5f, displayHeight * 0.2f)
+                // דילוג קצר יותר ויותר חלק
+                moveTo(displayWidth / 2f, displayHeight * 0.7f)
+                lineTo(displayWidth / 2f, displayHeight * 0.3f)
             }
 
-            val gestureBuilder = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 200))
+            val gestureDescription = GestureDescription.Builder()
+                .addStroke(GestureDescription.StrokeDescription(path, 0, 300)) // הגדלתי את זמן האנימציה ל-300ms
                 .build()
 
-            dispatchGesture(gestureBuilder, object : GestureResultCallback() {
+            dispatchGesture(gestureDescription, object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription?) {
                     handler.postDelayed({
-                        isPerformingAction = false
-                    }, 250)
+                        Log.d(TAG, "Scroll completed and cooldown finished")
+                        isScrolling = false
+                    }, 500) // המתנה נוספת של חצי שנייה אחרי סיום הדילוג
                 }
 
                 override fun onCancelled(gestureDescription: GestureDescription?) {
-                    isPerformingAction = false
+                    handler.post {
+                        Log.e(TAG, "Scroll was cancelled")
+                        isScrolling = false
+                    }
                 }
             }, null)
+
         } catch (e: Exception) {
-            Log.e(TAG, "Error executing scroll: ${e.message}")
-            isPerformingAction = false
+            Log.e(TAG, "Error during scroll", e)
+            isScrolling = false
         }
     }
 
+
     override fun onInterrupt() {
-        Log.d(TAG, "Service interrupted")
+        isPerformingAction = false
     }
 
     override fun onDestroy() {
         super.onDestroy()
-        Log.d(TAG, "Service destroyed")
+        handler.removeCallbacksAndMessages(null)
     }
 }
