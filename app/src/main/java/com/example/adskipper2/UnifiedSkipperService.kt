@@ -164,12 +164,12 @@ class UnifiedSkipperService : AccessibilityService() {
 
             val path = Path().apply {
                 // דילוג קצר יותר ויותר חלק
-                moveTo(displayWidth / 2f, displayHeight * 0.7f)
-                lineTo(displayWidth / 2f, displayHeight * 0.3f)
+                moveTo(displayWidth / 2f, displayHeight * 0.6f)
+                lineTo(displayWidth / 2f, displayHeight * 0.4f)
             }
 
             val gestureDescription = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 300)) // הגדלתי את זמן האנימציה ל-300ms
+                .addStroke(GestureDescription.StrokeDescription(path, 0, 150)) // הגדלתי את זמן האנימציה ל-300ms
                 .build()
 
             dispatchGesture(gestureDescription, object : GestureResultCallback() {
@@ -177,7 +177,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     handler.postDelayed({
                         Log.d(TAG, "Scroll completed and cooldown finished")
                         isScrolling = false
-                    }, 500) // המתנה נוספת של חצי שנייה אחרי סיום הדילוג
+                    }, 250) // המתנה נוספת של חצי שנייה אחרי סיום הדילוג
                 }
 
                 override fun onCancelled(gestureDescription: GestureDescription?) {
