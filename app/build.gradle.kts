@@ -72,15 +72,18 @@ dependencies {
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
 
-    // ML Kit
+    // MLKit
     implementation("com.google.mlkit:text-recognition:16.0.0")
+    implementation("com.google.mlkit:text-recognition-chinese:16.0.0")
+    implementation("com.google.mlkit:text-recognition-devanagari:16.0.0")
+    implementation("com.google.mlkit:text-recognition-japanese:16.0.0")
+    implementation("com.google.mlkit:text-recognition-korean:16.0.0")
     implementation("com.google.mlkit:image-labeling:17.0.7")
+    implementation("com.google.android.gms:play-services-mlkit-text-recognition:19.0.0")
 
-    // Permissions
-    implementation("com.google.accompanist:accompanist-permissions:0.34.0")
-
-    // Image Loading
-    implementation("io.coil-kt:coil-compose:2.6.0")
+    // Accessibility Services
+    implementation("androidx.core:core-ktx:1.12.0")
+    implementation("androidx.window:window:1.2.0")
 
     // Testing
     testImplementation("junit:junit:4.13.2")

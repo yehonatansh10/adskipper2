@@ -9,13 +9,80 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import android.view.accessibility.AccessibilityWindowInfo
 
 class UnifiedSkipperService : AccessibilityService() {
     companion object {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
+        private const val SCROLL_COOLDOWN = 3000L
     }
+
+    private data class AppConfig(
+        val packageName: String,
+        val adKeywords: List<String>,
+        val scrollConfig: ScrollConfig,
+        val customActions: List<String> = emptyList()
+    )
+
+    private data class ScrollConfig(
+        val startHeightRatio: Float = 0.6f,
+        val endHeightRatio: Float = 0.4f,
+        val duration: Long = 150,
+        val cooldown: Long = SCROLL_COOLDOWN
+    )
+
+    private val supportedApps = mapOf(
+        "com.zhiliaoapp.musically" to AppConfig(
+            packageName = "com.zhiliaoapp.musically",
+            adKeywords = listOf(
+                "sponsored", "Sponsored", "מודעה", "ממומן",
+                "החלק כדי לדלג", "view stories", "View Stories", "שותפות בתשלום",
+            ),
+            scrollConfig = ScrollConfig()
+        ),
+        "com.instagram.android" to AppConfig(
+            packageName = "com.instagram.android",
+            adKeywords = listOf(
+                "Sponsored", "sponsored", "מודעה", "ממומן",
+                "Suggested", "suggested", "מוצע", "פוסט ממומן",
+                "Sponsored post", "Paid partnership"
+            ),
+            scrollConfig = ScrollConfig(
+                startHeightRatio = 0.7f,
+                endHeightRatio = 0.3f,
+                duration = 200
+            )
+        ),
+        "com.facebook.katana" to AppConfig(
+            packageName = "com.facebook.katana",
+            adKeywords = listOf(
+                "Sponsored", "sponsored", "מודעה", "ממומן",
+                "Suggested for you", "מוצע עבורך",
+                "Sponsored post", "Paid partnership",
+                "People you may know", "אנשים שאולי תכיר"
+            ),
+            scrollConfig = ScrollConfig(
+                startHeightRatio = 0.65f,
+                endHeightRatio = 0.35f,
+                duration = 250
+            )
+        ),
+        "com.google.android.youtube" to AppConfig(
+            packageName = "com.google.android.youtube",
+            adKeywords = listOf(
+                "Sponsored", "sponsored", "מודעה", "ממומן",
+                "Advertisement", "פרסומת", "מוצע עבורך",
+                "Suggested", "המלצה", "Popular on YouTube", "פופולרי ביוטיוב",
+                "From channels you might like", "מערוצים שאולי תאהב"
+            ),
+            scrollConfig = ScrollConfig(
+                startHeightRatio = 0.7f,
+                endHeightRatio = 0.3f,
+                duration = 200
+            ),
+            customActions = listOf("דלג על מודעה", "Skip Ad", "Skip")
+        )
+    )
 
     private var isPerformingAction = false
     private var displayWidth = 0
@@ -23,177 +90,165 @@ class UnifiedSkipperService : AccessibilityService() {
     private val handler = Handler(Looper.getMainLooper())
     private var lastActionTime = 0L
     private var lastScrollTime = 0L
-    private val SCROLL_COOLDOWN = 3000L // 3 שניות המתנה בין דילוגים
     private var isScrolling = false
-
-    // המילים שאנחנו מחפשים
-    private val adKeywords = listOf(
-        "sponsored",
-        "Sponsored"
-    )
+    private var currentAppConfig: AppConfig? = null
 
     override fun onServiceConnected() {
         super.onServiceConnected()
-        val display = resources.displayMetrics
-        displayWidth = display.widthPixels
-        displayHeight = display.heightPixels
+        displayWidth = resources.displayMetrics.widthPixels
+        displayHeight = resources.displayMetrics.heightPixels
         Log.d(TAG, "Service connected with dimensions: $displayWidth x $displayHeight")
     }
 
-    override fun onAccessibilityEvent(event: AccessibilityEvent?) {
-        if (event?.packageName != "com.zhiliaoapp.musically") {
-            return
+    override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        event.packageName?.toString()?.let { packageName ->
+            currentAppConfig = supportedApps[packageName]
+            if (currentAppConfig != null && !isPerformingAction) {
+                when (event.eventType) {
+                    AccessibilityEvent.TYPE_VIEW_SCROLLED,
+                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                        if (packageName == "com.google.android.youtube") {
+                            val rootNode = rootInActiveWindow ?: return
+                            // בודק אם אנחנו במסך שורטס
+                            val isShorts = findNodeByText(rootNode, "Shorts")?.let { shortsNode ->
+                                shortsNode.recycle()
+                                true
+                            } ?: findNodeByText(rootNode, "שורטס")?.let { shortsNode ->
+                                shortsNode.recycle()
+                                true
+                            } ?: false
+
+                            if (isShorts) {
+                                checkContent() // מטפל בשורטס כמו בפייסבוק/טיקטוק
+                            } else {
+                                checkForYoutubeAds() // מטפל ביוטיוב רגיל
+                            }
+                            rootNode.recycle()
+                        } else {
+                            checkContent()
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private fun findNodeByText(node: AccessibilityNodeInfo, text: String): AccessibilityNodeInfo? {
+        if (node.text?.toString()?.contains(text) == true) {
+            return AccessibilityNodeInfo.obtain(node)
         }
 
-        if (event.eventType == AccessibilityEvent.TYPE_VIEW_SCROLLED && !isPerformingAction) {
-            checkContent()
+        for (i in 0 until node.childCount) {
+            node.getChild(i)?.let { child ->
+                findNodeByText(child, text)?.let { result ->
+                    child.recycle()
+                    return result
+                }
+                child.recycle()
+            }
+        }
+        return null
+    }
+
+    private fun checkForYoutubeAds() {
+        try {
+            val rootNode = rootInActiveWindow ?: return
+            currentAppConfig?.customActions?.forEach { actionText ->
+                findNodeByText(rootNode, actionText)?.let { skipButton ->
+                    if (skipButton.isClickable) {
+                        skipButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)
+                        Log.d(TAG, "Clicked YouTube skip button: $actionText")
+                    }
+                    skipButton.recycle()
+                }
+            }
+            rootNode.recycle()
+        } catch (e: Exception) {
+            Log.e(TAG, "Error checking YouTube ads", e)
         }
     }
 
     private fun checkContent() {
-        try {
-            if (isScrolling) {
-                Log.d(TAG, "Still scrolling, skipping check")
-                return
-            }
+        if (isScrolling) {
+            return
+        }
 
-            val windows = windows
+        try {
+            val rootNode = rootInActiveWindow ?: return
+            val appConfig = currentAppConfig ?: return
             var sponsoredNode: AccessibilityNodeInfo? = null
 
-            windows?.forEach { window ->
-                if (window.type == AccessibilityWindowInfo.TYPE_APPLICATION) {
-                    window.root?.let { node ->
-                        sponsoredNode = findSponsoredNode(node)
-                        if (sponsoredNode != null) return@forEach
+            for (keyword in appConfig.adKeywords) {
+                rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                    if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                        node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                        sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                        return@forEach
                     }
+                    node.recycle()
                 }
+                if (sponsoredNode != null) break
             }
 
-            if (sponsoredNode != null) {
+            sponsoredNode?.let { node ->
                 val bounds = Rect()
-                sponsoredNode?.getBoundsInScreen(bounds)
+                node.getBoundsInScreen(bounds)
 
                 val centerY = displayHeight / 2
-                // הגדלת טווח הטולרנס
-                val tolerance = displayHeight / 2  // שינוי מ-4 ל-2 (חצי מסך)
+                val tolerance = displayHeight / 2
 
-                // הוספת לוג לדיבוג
-                Log.d(TAG, "Checking position - Bounds: ${bounds.centerY()}, " +
-                        "Center: $centerY, " +
-                        "Tolerance: $tolerance, " +
-                        "Range: ${centerY - tolerance} to ${centerY + tolerance}")
-
-                if (bounds.centerY() > 0 && // וידוא שהמיקום חיובי
-                    bounds.centerY() < displayHeight && // וידוא שהמיקום בתוך המסך
+                if (bounds.centerY() in 1 until displayHeight &&
                     bounds.centerY() in (centerY - tolerance)..(centerY + tolerance)) {
 
                     val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastScrollTime > SCROLL_COOLDOWN) {
-                        Log.d(TAG, "Found ad in valid position - initiating scroll")
+                    if (currentTime - lastScrollTime > appConfig.scrollConfig.cooldown) {
+                        Log.d(TAG, "Found ad in ${appConfig.packageName} with bounds: ${bounds.centerY()}")
+                        performScroll(appConfig.scrollConfig)
                         lastScrollTime = currentTime
-                        performScroll()
-                    } else {
-                        Log.d(TAG, "Found ad but in cooldown period. Waiting...")
                     }
-                } else {
-                    Log.d(TAG, "Found ad but not in valid position. " +
-                            "Position: ${bounds.centerY()}, " +
-                            "Center: $centerY, " +
-                            "Valid range: ${centerY - tolerance} to ${centerY + tolerance}")
                 }
+                node.recycle()
             }
 
-            sponsoredNode?.recycle()
+            rootNode.recycle()
         } catch (e: Exception) {
             Log.e(TAG, "Error in checkContent", e)
         }
     }
 
-    private fun findSponsoredNode(node: AccessibilityNodeInfo): AccessibilityNodeInfo? {
-        try {
-            // הרחבת רשימת מילות המפתח לזיהוי פרסומות
-            val adKeywords = listOf(
-                "sponsored",
-                "Sponsored",
-                "מודעָה",
-                "ממומן",
-                "החלק כדי לדלג",
-            )
-
-            // בדיקת ContentDescription בנוסף לטקסט
-            val text = node.text?.toString() ?: ""
-            val contentDesc = node.contentDescription?.toString() ?: ""
-
-            // בדיקה אם יש התאמה באחד מהשדות
-            if (adKeywords.any { keyword ->
-                    text.contains(keyword) || contentDesc.contains(keyword)
-                }) {
-                Log.d(TAG, "Found ad indicator - Text: $text, ContentDesc: $contentDesc")
-                return node
-            }
-
-            // בדיקת ילדים באופן רקורסיבי עם שיפור בניהול משאבים
-            for (i in 0 until node.childCount) {
-                val child = node.getChild(i)
-                if (child != null) {
-                    try {
-                        val result = findSponsoredNode(child)
-                        if (result != null) {
-                            return result
-                        }
-                    } finally {
-                        child.recycle()  // וידוא שחרור משאבים
-                    }
-                }
-            }
-        } catch (e: Exception) {
-            Log.e(TAG, "Error in findSponsoredNode", e)
-        }
-        return null
-    }
-
-    private fun performScroll() {
-        if (isScrolling) {
-            Log.d(TAG, "Already scrolling, ignoring request")
-            return
-        }
+    private fun performScroll(scrollConfig: ScrollConfig) {
+        if (isScrolling) return
 
         try {
             isScrolling = true
-            Log.d(TAG, "Starting scroll motion")
-
             val path = Path().apply {
-                // דילוג קצר יותר ויותר חלק
-                moveTo(displayWidth / 2f, displayHeight * 0.6f)
-                lineTo(displayWidth / 2f, displayHeight * 0.4f)
+                moveTo(displayWidth / 2f, displayHeight * scrollConfig.startHeightRatio)
+                lineTo(displayWidth / 2f, displayHeight * scrollConfig.endHeightRatio)
             }
 
             val gestureDescription = GestureDescription.Builder()
-                .addStroke(GestureDescription.StrokeDescription(path, 0, 150)) // הגדלתי את זמן האנימציה ל-300ms
+                .addStroke(GestureDescription.StrokeDescription(path, 0, scrollConfig.duration))
                 .build()
 
             dispatchGesture(gestureDescription, object : GestureResultCallback() {
-                override fun onCompleted(gestureDescription: GestureDescription?) {
+                override fun onCompleted(gestureDescription: GestureDescription) {
                     handler.postDelayed({
-                        Log.d(TAG, "Scroll completed and cooldown finished")
                         isScrolling = false
-                    }, 250) // המתנה נוספת של חצי שנייה אחרי סיום הדילוג
+                    }, 250)
                 }
 
-                override fun onCancelled(gestureDescription: GestureDescription?) {
+                override fun onCancelled(gestureDescription: GestureDescription) {
                     handler.post {
-                        Log.e(TAG, "Scroll was cancelled")
                         isScrolling = false
                     }
                 }
             }, null)
-
         } catch (e: Exception) {
             Log.e(TAG, "Error during scroll", e)
             isScrolling = false
         }
     }
-
 
     override fun onInterrupt() {
         isPerformingAction = false
