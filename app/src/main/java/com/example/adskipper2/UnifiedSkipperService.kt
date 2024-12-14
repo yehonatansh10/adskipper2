@@ -115,14 +115,9 @@ class UnifiedSkipperService : AccessibilityService() {
             val adKeywords = listOf(
                 "sponsored",
                 "Sponsored",
-                "מוּדעָה",
+                "מודעָה",
                 "ממומן",
-                "Ad",
-                "ad",
-                "广告",  // סינית
-                "Sponsorisé", // צרפתית
-                "Patrocinado", // ספרדית
-                "Gesponsert"  // גרמנית
+                "החלק כדי לדלג",
             )
 
             // בדיקת ContentDescription בנוסף לטקסט
