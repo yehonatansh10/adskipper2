@@ -167,25 +167,57 @@ class UnifiedSkipperService : AccessibilityService() {
     }
 
     private fun checkContent() {
-        if (isScrolling) {
-            return
-        }
+        if (isScrolling) return
 
         try {
             val rootNode = rootInActiveWindow ?: return
             val appConfig = currentAppConfig ?: return
             var sponsoredNode: AccessibilityNodeInfo? = null
 
-            for (keyword in appConfig.adKeywords) {
-                rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
-                    if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
-                        node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
-                        sponsoredNode = AccessibilityNodeInfo.obtain(node)
-                        return@forEach
-                    }
-                    node.recycle()
+            // בדיקה מיוחדת לפייסבוק
+            if (appConfig.packageName == "com.facebook.katana") {
+                var hasReels = false
+                var hasSponsored = false
+
+                // בדיקת Reels
+                findNodeByText(rootNode, "Reels")?.let { reelsNode ->
+                    hasReels = true
+                    reelsNode.recycle()
                 }
-                if (sponsoredNode != null) break
+
+                // בדיקת ממומן/Sponsored
+                for (keyword in appConfig.adKeywords) {
+                    rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                        if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                            node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                            hasSponsored = true
+                            sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                            return@forEach
+                        }
+                        node.recycle()
+                    }
+                    if (sponsoredNode != null) break
+                }
+
+                // רק אם יש גם Reels וגם ממומן נמשיך
+                if (!hasReels || !hasSponsored) {
+                    sponsoredNode?.recycle()
+                    rootNode.recycle()
+                    return
+                }
+            } else {
+                // הלוגיקה המקורית לשאר האפליקציות
+                for (keyword in appConfig.adKeywords) {
+                    rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                        if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                            node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                            sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                            return@forEach
+                        }
+                        node.recycle()
+                    }
+                    if (sponsoredNode != null) break
+                }
             }
 
             sponsoredNode?.let { node ->
