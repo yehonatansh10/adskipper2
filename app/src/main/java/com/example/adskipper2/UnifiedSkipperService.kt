@@ -35,8 +35,11 @@ class UnifiedSkipperService : AccessibilityService() {
         "com.zhiliaoapp.musically" to AppConfig(
             packageName = "com.zhiliaoapp.musically",
             adKeywords = listOf(
-                "sponsored", "Sponsored", "מודעה", "ממומן",
-                "החלק כדי לדלג", "view stories", "View Stories", "שותפות בתשלום",
+                "sponsored", "Sponsored", "ממומן",
+                "החלק כדי לדלג", "view stories", "View stories", "שותפות בתשלום",
+                " החלק/החליקי למעלה למעבר לפוסט הבא",
+                "paid partnership", "Paid partnership",
+
             ),
             scrollConfig = ScrollConfig()
         ),
@@ -45,7 +48,7 @@ class UnifiedSkipperService : AccessibilityService() {
             adKeywords = listOf(
                 "Sponsored", "sponsored", "מודעה", "ממומן",
                 "Suggested", "suggested", "מוצע", "פוסט ממומן",
-                "Sponsored post", "Paid partnership"
+                "Sponsored post", "Paid partnership", "הצעות בשבילך", "רוצה לנסות?"
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.7f,
@@ -56,10 +59,7 @@ class UnifiedSkipperService : AccessibilityService() {
         "com.facebook.katana" to AppConfig(
             packageName = "com.facebook.katana",
             adKeywords = listOf(
-                "Sponsored", "sponsored", "מודעה", "ממומן",
-                "Suggested for you", "מוצע עבורך",
-                "Sponsored post", "Paid partnership",
-                "People you may know", "אנשים שאולי תכיר"
+                "Sponsored", "sponsored", "ממומן",
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.65f,
@@ -70,10 +70,7 @@ class UnifiedSkipperService : AccessibilityService() {
         "com.google.android.youtube" to AppConfig(
             packageName = "com.google.android.youtube",
             adKeywords = listOf(
-                "Sponsored", "sponsored", "מודעה", "ממומן",
-                "Advertisement", "פרסומת", "מוצע עבורך",
-                "Suggested", "המלצה", "Popular on YouTube", "פופולרי ביוטיוב",
-                "From channels you might like", "מערוצים שאולי תאהב"
+                "Sponsored", "sponsored", "ממומן",
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.7f,
