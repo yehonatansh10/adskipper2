@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- מחרוזות קיימות -->
-    <string name="app_name">Adskipper2</string>
+    <string name="app_name">AdSkipper</string>
     <string name="adskipper2">Adskipper2</string>
     <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
     <string name="text_recognition_success">הטקסט זוהה בהצלחה</string>
