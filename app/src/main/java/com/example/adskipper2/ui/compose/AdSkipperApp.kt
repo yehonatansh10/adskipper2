@@ -63,6 +63,8 @@ fun AdSkipperApp(
                 modifier = Modifier.padding(top = 80.dp)
             )
 
+            Spacer(modifier = Modifier.height(150.dp))
+
             // Custom Toggle Switch
             Box(
                 modifier = Modifier
