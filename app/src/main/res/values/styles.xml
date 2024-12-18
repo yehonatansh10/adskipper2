@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="CustomSwitch" parent="Theme.AppCompat.Light">
+        <!-- צבע הרקע של המתג במצב כבוי -->
+        <item name="colorSwitchThumbNormal">@color/black</item>
+        <!-- צבע הרקע של המתג במצב מופעל -->
+        <item name="colorControlActivated">@color/black</item>
+        <!-- צבע הרקע של המסלול -->
+        <item name="android:colorForeground">@color/white</item>
+    </style>
+</resources>
