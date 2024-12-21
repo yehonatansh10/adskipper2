@@ -36,12 +36,12 @@ class UnifiedSkipperService : AccessibilityService() {
             packageName = "com.zhiliaoapp.musically",
             adKeywords = listOf(
                 "sponsored", "Sponsored", "ממומן",
-                "החלק כדי לדלג", "view stories", "View stories", "שותפות בתשלום",
+                "החלק כדי לדלג", "view stories", "View Stories", "שותפות בתשלום",
                 " החלק/החליקי למעלה למעבר לפוסט הבא",
                 "Swipe up for next post", "swipe up for next post",
                 "Swipe up to skip", "swipe up to skip",
                 "Not interested", "not interested",
-                "Live now", "live now", "Tap to watch live", "tap to watch live",
+                "LIVE now", "Tap to watch lIVE", "tap to watch lIVE",
                 "paid partnership", "Paid partnership",
             ),
             scrollConfig = ScrollConfig()
