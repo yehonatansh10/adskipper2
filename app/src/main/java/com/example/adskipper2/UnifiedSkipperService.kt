@@ -108,26 +108,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     AccessibilityEvent.TYPE_VIEW_SCROLLED,
                     AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
                     AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                        if (packageName == "com.google.android.youtube") {
-                            val rootNode = rootInActiveWindow ?: return
-                            // בודק אם אנחנו במסך שורטס
-                            val isShorts = findNodeByText(rootNode, "Shorts")?.let { shortsNode ->
-                                shortsNode.recycle()
-                                true
-                            } ?: findNodeByText(rootNode, "שורטס")?.let { shortsNode ->
-                                shortsNode.recycle()
-                                true
-                            } ?: false
-
-                            if (isShorts) {
-                                checkContent() // מטפל בשורטס כמו בפייסבוק/טיקטוק
-                            } else {
-                                checkForYoutubeAds() // מטפל ביוטיוב רגיל
-                            }
-                            rootNode.recycle()
-                        } else {
-                            checkContent()
-                        }
+                        checkContent()
                     }
                 }
             }
@@ -151,24 +132,6 @@ class UnifiedSkipperService : AccessibilityService() {
         return null
     }
 
-    private fun checkForYoutubeAds() {
-        try {
-            val rootNode = rootInActiveWindow ?: return
-            currentAppConfig?.customActions?.forEach { actionText ->
-                findNodeByText(rootNode, actionText)?.let { skipButton ->
-                    if (skipButton.isClickable) {
-                        skipButton.performAction(AccessibilityNodeInfo.ACTION_CLICK)
-                        Log.d(TAG, "Clicked YouTube skip button: $actionText")
-                    }
-                    skipButton.recycle()
-                }
-            }
-            rootNode.recycle()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error checking YouTube ads", e)
-        }
-    }
-
     private fun checkContent() {
         if (isScrolling) return
 
@@ -177,13 +140,16 @@ class UnifiedSkipperService : AccessibilityService() {
             val appConfig = currentAppConfig ?: return
             var sponsoredNode: AccessibilityNodeInfo? = null
 
-            // בדיקה מיוחדת לפייסבוק
-            if (appConfig.packageName == "com.facebook.katana") {
+            // בדיקה מיוחדת לפייסבוק ואינסטגרם
+            if (appConfig.packageName == "com.facebook.katana" || appConfig.packageName == "com.instagram.android") {
                 var hasReels = false
                 var hasSponsored = false
 
                 // בדיקת Reels
                 findNodeByText(rootNode, "Reels")?.let { reelsNode ->
+                    hasReels = true
+                    reelsNode.recycle()
+                } ?: findNodeByText(rootNode, "ריל")?.let { reelsNode ->  // הוספת תמיכה בעברית
                     hasReels = true
                     reelsNode.recycle()
                 }
@@ -208,6 +174,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     rootNode.recycle()
                     return
                 }
+
             } else {
                 // הלוגיקה המקורית לשאר האפליקציות
                 for (keyword in appConfig.adKeywords) {
