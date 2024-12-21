@@ -51,7 +51,7 @@ class UnifiedSkipperService : AccessibilityService() {
             adKeywords = listOf(
                 "Sponsored", "sponsored", "מודעה", "ממומן",
                 "Suggested", "suggested", "מוצע", "פוסט ממומן",
-                "Sponsored post", "Paid partnership", "הצעות בשבילך", "רוצה לנסות?"
+                "Sponsored post", "Paid partnership", "הצעות בשבילך", "רוצה לנסות?", "שותפות בתשלום"
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.7f,
