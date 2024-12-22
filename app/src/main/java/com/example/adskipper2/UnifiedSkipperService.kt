@@ -51,7 +51,9 @@ class UnifiedSkipperService : AccessibilityService() {
             adKeywords = listOf(
                 "Sponsored", "sponsored", "מודעה", "ממומן",
                 "Suggested", "suggested", "מוצע", "פוסט ממומן",
-                "Sponsored post", "Paid partnership", "הצעות בשבילך", "רוצה לנסות?", "שותפות בתשלום"
+                "Sponsored post", "Paid partnership", "הצעות בשבילך", "רוצה לנסות?",
+                "שותפות בתשלום", "Suggested threads", "Get app",
+                "Turn your moments into a reel", "רוצה לנסות?",
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.7f,
@@ -75,12 +77,7 @@ class UnifiedSkipperService : AccessibilityService() {
             adKeywords = listOf(
                 "Sponsored", "sponsored", "ממומן",
             ),
-            scrollConfig = ScrollConfig(
-                startHeightRatio = 0.7f,
-                endHeightRatio = 0.3f,
-                duration = 200
-            ),
-            customActions = listOf("דלג על מודעה", "Skip Ad", "Skip")
+            scrollConfig = ScrollConfig()  // אותה קונפיגורציית גלילה בדיוק כמו בטיקטוק
         )
     )
 
