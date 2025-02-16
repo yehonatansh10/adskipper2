@@ -136,25 +136,27 @@ class UnifiedSkipperService : AccessibilityService() {
         if (isScrolling) return
 
         try {
-            val rootNode = rootInActiveWindow ?: return
-            val appConfig = currentAppConfig ?: return
+            val rootNode = getRootInActiveWindow()?: return
+            val appConfig = currentAppConfig?: return
             var sponsoredNode: AccessibilityNodeInfo? = null
 
-            // בדיקה מיוחדת לפייסבוק ואינסטגרם
-            if (appConfig.packageName == "com.facebook.katana" || appConfig.packageName == "com.instagram.android") {
+            // בדיקת Reels/סטורי
+            if (appConfig.packageName == "com.facebook.katana" ||
+                appConfig.packageName == "com.instagram.android") {
                 var hasReels = false
                 var hasSponsored = false
 
-                // בדיקת Reels
+                // Reels בדיקת
                 findNodeByText(rootNode, "Reels")?.let { reelsNode ->
                     hasReels = true
                     reelsNode.recycle()
-                } ?: findNodeByText(rootNode, "ריל")?.let { reelsNode ->  // הוספת תמיכה בעברית
+                }
+                findNodeByText(rootNode, "רץ")?.let { reelsNode -> // "הוספת תמונה בעברית"
                     hasReels = true
                     reelsNode.recycle()
                 }
 
-                // בדיקת ממומן/Sponsored
+                // Sponsored/בדיקת ממומן
                 for (keyword in appConfig.adKeywords) {
                     rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
                         if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
@@ -169,14 +171,44 @@ class UnifiedSkipperService : AccessibilityService() {
                 }
 
                 // רק אם יש גם Reels וגם ממומן נמשיך
-                if (!hasReels || !hasSponsored) {
+                if (hasReels && hasSponsored) {
                     sponsoredNode?.recycle()
                     rootNode.recycle()
                     return
                 }
+            } else if (appConfig.packageName == "com.google.android.youtube") {
+                var hasDislike = false
+                var hasKeyword = false
 
+                // בדיקת Dislike
+                findNodeByText(rootNode, "Dislike")?.let {
+                    hasDislike = true
+                }
+                findNodeByText(rootNode, "דיסלייק")?.let {
+                    hasDislike = true
+                }
+
+                // בדיקת מילות המפתח
+                for (keyword in appConfig.adKeywords) {
+                    rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                        if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                            node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                            hasKeyword = true
+                            sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                            return@forEach
+                        }
+                        node.recycle()
+                    }
+                    if (sponsoredNode != null) break
+                }
+
+                // נבצע גלילה רק אם שני התנאים מתקיימים
+                if (!hasDislike || !hasKeyword) {
+                    sponsoredNode?.recycle()
+                    sponsoredNode = null
+                }
             } else {
-                // הלוגיקה המקורית לשאר האפליקציות
+                // הבדיקה המקורית לשאר האפליקציות
                 for (keyword in appConfig.adKeywords) {
                     rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
                         if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
