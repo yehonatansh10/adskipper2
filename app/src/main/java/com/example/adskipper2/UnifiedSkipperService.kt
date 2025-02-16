@@ -140,43 +140,8 @@ class UnifiedSkipperService : AccessibilityService() {
             val appConfig = currentAppConfig?: return
             var sponsoredNode: AccessibilityNodeInfo? = null
 
-            // בדיקת Reels/סטורי
-            if (appConfig.packageName == "com.facebook.katana" ||
-                appConfig.packageName == "com.instagram.android") {
-                var hasReels = false
-                var hasSponsored = false
-
-                // Reels בדיקת
-                findNodeByText(rootNode, "Reels")?.let { reelsNode ->
-                    hasReels = true
-                    reelsNode.recycle()
-                }
-                findNodeByText(rootNode, "רץ")?.let { reelsNode -> // "הוספת תמונה בעברית"
-                    hasReels = true
-                    reelsNode.recycle()
-                }
-
-                // Sponsored/בדיקת ממומן
-                for (keyword in appConfig.adKeywords) {
-                    rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
-                        if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
-                            node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
-                            hasSponsored = true
-                            sponsoredNode = AccessibilityNodeInfo.obtain(node)
-                            return@forEach
-                        }
-                        node.recycle()
-                    }
-                    if (sponsoredNode != null) break
-                }
-
-                // רק אם יש גם Reels וגם ממומן נמשיך
-                if (hasReels && hasSponsored) {
-                    sponsoredNode?.recycle()
-                    rootNode.recycle()
-                    return
-                }
-            } else if (appConfig.packageName == "com.google.android.youtube") {
+            // בדיקת youtube
+            if (appConfig.packageName == "com.google.android.youtube") {
                 var hasDislike = false
                 var hasKeyword = false
 
@@ -208,7 +173,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     sponsoredNode = null
                 }
             } else {
-                // הבדיקה המקורית לשאר האפליקציות
+                // בדיקת מילות מפתח לשאר האפליקציות
                 for (keyword in appConfig.adKeywords) {
                     rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
                         if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
