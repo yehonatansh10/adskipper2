@@ -14,7 +14,7 @@ class UnifiedSkipperService : AccessibilityService() {
     companion object {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
-        private const val SCROLL_COOLDOWN = 3000L
+        private const val SCROLL_COOLDOWN = 500L
     }
 
     private data class AppConfig(
@@ -235,7 +235,9 @@ class UnifiedSkipperService : AccessibilityService() {
                 override fun onCompleted(gestureDescription: GestureDescription) {
                     handler.postDelayed({
                         isScrolling = false
-                    }, 250)
+                        // מיד אחרי שהגלילה הסתיימה, נבצע בדיקה נוספת
+                        checkContent()
+                    }, 50)  // נחכה 250 מילישניות אחרי הגלילה לפני הבדיקה החדשה
                 }
 
                 override fun onCancelled(gestureDescription: GestureDescription) {
