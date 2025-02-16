@@ -41,8 +41,11 @@ class UnifiedSkipperService : AccessibilityService() {
                 "Swipe up for next post", "swipe up for next post",
                 "Swipe up to skip", "swipe up to skip",
                 "Not interested", "not interested",
-                "LIVE now", "Tap to watch lIVE", "tap to watch lIVE",
-                "paid partnership", "Paid partnership",
+                "LIVE now", "Live now", "Tap to watch lIVE", "tap to watch lIVE",
+                "paid partnership", "Paid partnership", "Sign up",
+                "Follows you", "Follow back", "promotional content",
+                "תוכן פרסומי", "תוכן שיווקי", "How do you feel about the video you just watched?",
+                "Submit", "Tap an emoji to submit",
             ),
             scrollConfig = ScrollConfig()
         ),
