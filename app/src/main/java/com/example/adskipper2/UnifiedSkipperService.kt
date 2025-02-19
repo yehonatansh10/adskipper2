@@ -14,7 +14,7 @@ class UnifiedSkipperService : AccessibilityService() {
     companion object {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
-        private const val SCROLL_COOLDOWN = 3000L
+        private const val SCROLL_COOLDOWN = 2000L
     }
 
     private data class AppConfig(
@@ -27,8 +27,13 @@ class UnifiedSkipperService : AccessibilityService() {
     private data class ScrollConfig(
         val startHeightRatio: Float = 0.6f,
         val endHeightRatio: Float = 0.4f,
-        val duration: Long = 150,
+        val duration: Long = 100,
         val cooldown: Long = SCROLL_COOLDOWN
+    )
+
+    private data class ScrollEvent(
+        val timestamp: Long,
+        val y: Int
     )
 
     private val supportedApps = mapOf(
@@ -64,7 +69,7 @@ class UnifiedSkipperService : AccessibilityService() {
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.7f,
                 endHeightRatio = 0.3f,
-                duration = 200
+                duration = 150
             )
         ),
         "com.facebook.katana" to AppConfig(
@@ -75,7 +80,7 @@ class UnifiedSkipperService : AccessibilityService() {
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.65f,
                 endHeightRatio = 0.35f,
-                duration = 250
+                duration = 150
             )
         ),
         "com.google.android.youtube" to AppConfig(
@@ -95,6 +100,8 @@ class UnifiedSkipperService : AccessibilityService() {
     private var lastScrollTime = 0L
     private var isScrolling = false
     private var currentAppConfig: AppConfig? = null
+    private var lastScrollEvents = mutableListOf<ScrollEvent>()
+    private val SCROLL_DIRECTION_WINDOW = 1000L
 
     override fun onServiceConnected() {
         super.onServiceConnected()
@@ -116,6 +123,21 @@ class UnifiedSkipperService : AccessibilityService() {
                 }
             }
         }
+    }
+
+    private fun isScrollingForward(): Boolean? {
+        val currentTime = System.currentTimeMillis()
+        lastScrollEvents.removeAll { currentTime - it.timestamp > SCROLL_DIRECTION_WINDOW }
+        if (lastScrollEvents.size < 2) return null
+        val sortedEvents = lastScrollEvents.sortedBy { it.timestamp }
+        return sortedEvents.first().y > sortedEvents.last().y
+    }
+
+    private fun updateScrollDirection(bounds: Rect) {
+        lastScrollEvents.add(ScrollEvent(
+            timestamp = System.currentTimeMillis(),
+            y = bounds.centerY()
+        ))
     }
 
     private fun findNodeByText(node: AccessibilityNodeInfo, text: String): AccessibilityNodeInfo? {
@@ -203,8 +225,11 @@ class UnifiedSkipperService : AccessibilityService() {
                 if (bounds.centerY() in 1 until displayHeight &&
                     bounds.centerY() in (centerY - tolerance)..(centerY + tolerance)) {
 
+                    updateScrollDirection(bounds)
+                    val scrollForward = isScrollingForward()
                     val currentTime = System.currentTimeMillis()
-                    if (currentTime - lastScrollTime > appConfig.scrollConfig.cooldown) {
+                    if ((scrollForward == true || scrollForward == null) &&
+                        currentTime - lastScrollTime > appConfig.scrollConfig.cooldown) {
                         Log.d(TAG, "Found ad in ${appConfig.packageName} with bounds: ${bounds.centerY()}")
                         performScroll(appConfig.scrollConfig)
                         lastScrollTime = currentTime
