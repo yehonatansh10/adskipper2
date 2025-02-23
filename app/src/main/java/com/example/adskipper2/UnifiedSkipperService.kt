@@ -15,6 +15,23 @@ class UnifiedSkipperService : AccessibilityService() {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
         private const val SCROLL_COOLDOWN = 2000L
+        private const val DEBUG = false
+    }
+
+    private fun logDebug(message: String) {
+        if (DEBUG) {
+            Log.d(TAG, message)
+        }
+    }
+
+    private fun logError(message: String, e: Exception? = null) {
+        if (DEBUG) {
+            if (e != null) {
+                Log.e(TAG, message, e)
+            } else {
+                Log.e(TAG, message)
+            }
+        }
     }
 
     private data class AppConfig(
@@ -99,7 +116,7 @@ class UnifiedSkipperService : AccessibilityService() {
         super.onServiceConnected()
         displayWidth = resources.displayMetrics.widthPixels
         displayHeight = resources.displayMetrics.heightPixels
-        Log.d(TAG, "Service connected with dimensions: $displayWidth x $displayHeight")
+        logDebug("Service connected with dimensions: $displayWidth x $displayHeight")
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -259,7 +276,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     val currentTime = System.currentTimeMillis()
                     if ((scrollForward == true || scrollForward == null) &&
                         currentTime - lastScrollTime > appConfig.scrollConfig.cooldown) {
-                        Log.d(TAG, "Found ad in ${appConfig.packageName} with bounds: ${bounds.centerY()}")
+                        logDebug("Found ad in ${appConfig.packageName} with bounds: ${bounds.centerY()}")
                         performScroll(appConfig.scrollConfig)
                         lastScrollTime = currentTime
                     }
@@ -269,7 +286,7 @@ class UnifiedSkipperService : AccessibilityService() {
 
             rootNode.recycle()
         } catch (e: Exception) {
-            Log.e(TAG, "Error in checkContent", e)
+            logError("Error in checkContent", e)
         }
     }
 
@@ -301,7 +318,7 @@ class UnifiedSkipperService : AccessibilityService() {
                 }
             }, null)
         } catch (e: Exception) {
-            Log.e(TAG, "Error during scroll", e)
+            logError("Error during scroll", e)
             isScrolling = false
         }
     }
