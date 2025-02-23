@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<network-security-config>
+    <base-config cleartextTrafficPermitted="false">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+
+    <!-- אם יש שרתים ספציפיים, נוסיף אותם כך: -->
+    <!--
+    <domain-config cleartextTrafficPermitted="false">
+        <domain includeSubdomains="true">example.com</domain>
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+        <pin-set expiration="2025-01-01">
+            <pin digest="SHA-256">YOUR_PIN_HERE</pin>
+        </pin-set>
+    </domain-config>
+    -->
+</network-security-config>
