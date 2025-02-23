@@ -60,11 +60,11 @@ class UnifiedSkipperService : AccessibilityService() {
                 "מודעה", "ממומן", "מוצע", "פוסט ממומן",
                 "שותפות בתשלום", "רוצה לנסות?",
                 "הצעות בשבילך",
-                "Sponsored", "sponsored",
-                "Suggested", "suggested",
+                "Sponsored", "Suggested",
                 "Sponsored post", "Paid partnership",
                 "Suggested threads", "Get app",
                 "Turn your moments into a reel",
+                "Learn more", "Sign up", "Chat on WhatsApp",
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.7f,
@@ -75,7 +75,7 @@ class UnifiedSkipperService : AccessibilityService() {
         "com.facebook.katana" to AppConfig(
             packageName = "com.facebook.katana",
             adKeywords = listOf(
-                "Sponsored", "sponsored", "ממומן",
+                "Sponsored", "ממומן",
             ),
             scrollConfig = ScrollConfig(
                 startHeightRatio = 0.65f,
@@ -86,7 +86,7 @@ class UnifiedSkipperService : AccessibilityService() {
         "com.google.android.youtube" to AppConfig(
             packageName = "com.google.android.youtube",
             adKeywords = listOf(
-                "Sponsored", "sponsored", "ממומן",
+                "Sponsored", "ממומן",
             ),
             scrollConfig = ScrollConfig()  // אותה קונפיגורציית גלילה בדיוק כמו בטיקטוק
         )
