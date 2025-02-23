@@ -66,22 +66,14 @@ class UnifiedSkipperService : AccessibilityService() {
                 "Turn your moments into a reel",
                 "Learn more", "Sign up", "Chat on WhatsApp",
             ),
-            scrollConfig = ScrollConfig(
-                startHeightRatio = 0.7f,
-                endHeightRatio = 0.3f,
-                duration = 150
-            )
+            scrollConfig = ScrollConfig()  // השתמש בקונפיגורציית ברירת המחדל
         ),
         "com.facebook.katana" to AppConfig(
             packageName = "com.facebook.katana",
             adKeywords = listOf(
                 "Sponsored", "ממומן",
             ),
-            scrollConfig = ScrollConfig(
-                startHeightRatio = 0.65f,
-                endHeightRatio = 0.35f,
-                duration = 150
-            )
+            scrollConfig = ScrollConfig()  // השתמש בקונפיגורציית ברירת המחדל
         ),
         "com.google.android.youtube" to AppConfig(
             packageName = "com.google.android.youtube",
