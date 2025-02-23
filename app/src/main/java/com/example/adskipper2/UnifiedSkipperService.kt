@@ -78,7 +78,7 @@ class UnifiedSkipperService : AccessibilityService() {
         "com.google.android.youtube" to AppConfig(
             packageName = "com.google.android.youtube",
             adKeywords = listOf(
-                "Sponsored", "ממומן",
+                "Sponsored", "ממומן", "Start now",
             ),
             scrollConfig = ScrollConfig()  // אותה קונפיגורציית גלילה בדיוק כמו בטיקטוק
         )
@@ -157,53 +157,90 @@ class UnifiedSkipperService : AccessibilityService() {
             val appConfig = currentAppConfig ?: return
             var sponsoredNode: AccessibilityNodeInfo? = null
 
-            // בדיקה מיוחדת לפייסבוק ואינסטגרם
-            if (appConfig.packageName == "com.facebook.katana" || appConfig.packageName == "com.instagram.android") {
-                var hasReels = false
-                var hasSponsored = false
+            when (appConfig.packageName) {
+                "com.facebook.katana", "com.instagram.android" -> {
+                    var hasReels = false
+                    var hasSponsored = false
 
-                // בדיקת Reels
-                findNodeByText(rootNode, "Reels")?.let { reelsNode ->
-                    hasReels = true
-                    reelsNode.recycle()
-                } ?: findNodeByText(rootNode, "ריל")?.let { reelsNode ->  // הוספת תמיכה בעברית
-                    hasReels = true
-                    reelsNode.recycle()
-                }
-
-                // בדיקת ממומן/Sponsored
-                for (keyword in appConfig.adKeywords) {
-                    rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
-                        if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
-                            node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
-                            hasSponsored = true
-                            sponsoredNode = AccessibilityNodeInfo.obtain(node)
-                            return@forEach
-                        }
-                        node.recycle()
+                    // בדיקת Reels
+                    findNodeByText(rootNode, "Reels")?.let { reelsNode ->
+                        hasReels = true
+                        reelsNode.recycle()
+                    } ?: findNodeByText(rootNode, "ריל")?.let { reelsNode ->
+                        hasReels = true
+                        reelsNode.recycle()
                     }
-                    if (sponsoredNode != null) break
-                }
 
-                // רק אם יש גם Reels וגם ממומן נמשיך
-                if (!hasReels || !hasSponsored) {
-                    sponsoredNode?.recycle()
-                    rootNode.recycle()
-                    return
-                }
-
-            } else {
-                // הלוגיקה המקורית לשאר האפליקציות
-                for (keyword in appConfig.adKeywords) {
-                    rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
-                        if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
-                            node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
-                            sponsoredNode = AccessibilityNodeInfo.obtain(node)
-                            return@forEach
+                    // בדיקת ממומן/Sponsored
+                    for (keyword in appConfig.adKeywords) {
+                        rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                            if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                                node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                                hasSponsored = true
+                                sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                                return@forEach
+                            }
+                            node.recycle()
                         }
-                        node.recycle()
+                        if (sponsoredNode != null) break
                     }
-                    if (sponsoredNode != null) break
+
+                    // רק אם יש גם Reels וגם ממומן נמשיך
+                    if (!hasReels || !hasSponsored) {
+                        sponsoredNode?.recycle()
+                        rootNode.recycle()
+                        return
+                    }
+                }
+
+                "com.google.android.youtube" -> {
+                    var hasDislike = false
+                    var hasSponsored = false
+
+                    // בדיקת Dislike
+                    findNodeByText(rootNode, "Dislike")?.let { dislikeNode ->
+                        hasDislike = true
+                        dislikeNode.recycle()
+                    } ?: findNodeByText(rootNode, "דיסלייק")?.let { dislikeNode ->
+                        hasDislike = true
+                        dislikeNode.recycle()
+                    }
+
+                    // בדיקת ממומן/Sponsored
+                    for (keyword in appConfig.adKeywords) {
+                        rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                            if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                                node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                                hasSponsored = true
+                                sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                                return@forEach
+                            }
+                            node.recycle()
+                        }
+                        if (sponsoredNode != null) break
+                    }
+
+                    // רק אם יש גם Dislike וגם ממומן נמשיך
+                    if (!hasDislike || !hasSponsored) {
+                        sponsoredNode?.recycle()
+                        rootNode.recycle()
+                        return
+                    }
+                }
+
+                else -> {
+                    // הלוגיקה המקורית לשאר האפליקציות (טיקטוק)
+                    for (keyword in appConfig.adKeywords) {
+                        rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
+                            if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                                node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+                                sponsoredNode = AccessibilityNodeInfo.obtain(node)
+                                return@forEach
+                            }
+                            node.recycle()
+                        }
+                        if (sponsoredNode != null) break
+                    }
                 }
             }
 
