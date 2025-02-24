@@ -44,8 +44,6 @@ import com.example.adskipper2.gesture.GesturePlayer
 import com.example.adskipper2.gesture.GestureRecorder
 import com.example.adskipper2.ui.compose.AdSkipperApp
 import com.google.mlkit.vision.common.InputImage
-import com.google.mlkit.vision.label.ImageLabeling
-import com.google.mlkit.vision.label.defaults.ImageLabelerOptions
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
@@ -525,7 +523,6 @@ class MainActivity : ComponentActivity() {
             }
 
             when (currentMediaType.value) {
-                "תמונה" -> labelImage(image)
                 "טקסט" -> recognizeText(image)
             }
 
@@ -564,24 +561,6 @@ class MainActivity : ComponentActivity() {
             .addOnFailureListener { e ->
                 Log.e(TAG, "Text recognition failed", e)
                 Toast.makeText(this, "שגיאה בזיהוי טקסט", Toast.LENGTH_SHORT).show()
-            }
-    }
-
-    private fun labelImage(image: InputImage) {
-        Log.d(TAG, "Starting image labeling")
-        ImageLabeling.getClient(ImageLabelerOptions.DEFAULT_OPTIONS)
-            .process(image)
-            .addOnSuccessListener { labels ->
-                val labelText = labels.joinToString("\n") {
-                    "${it.text} (${(it.confidence * 100).toInt()}%)"
-                }
-                Log.d(TAG, "Image labeled: $labelText")
-                selectedContent.value = selectedContent.value + labelText
-                saveTargetText(labelText)
-            }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Image labeling failed", e)
-                Toast.makeText(this, "שגיאה בזיהוי התמונה", Toast.LENGTH_SHORT).show()
             }
     }
 }
