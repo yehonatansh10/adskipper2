@@ -1,40 +1,40 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- מחרוזות קיימות -->
-    <string name="app_name">AdSkipper</string>
-    <string name="adskipper2">Adskipper2</string>
-    <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
-    <string name="text_recognition_success">הטקסט זוהה בהצלחה</string>
-    <string name="text_recognition_error">שגיאה בזיהוי הטקסט</string>
-    <string name="image_recognition_success">התמונה זוהתה בהצלחה</string>
-    <string name="image_recognition_error">שגיאה בזיהוי התמונה</string>
-    <string name="select_image">בחר תמונה</string>
-    <string name="enter_text">הכנס טקסט</string>
-    <string name="recognized_content_hint">התוכן שזוהה יופיע כאן</string>
-    <string name="save_success">נשמר בהצלחה</string>
-    <string name="save_error">שגיאה בשמירה</string>
-    <string name="accessibility_enabled">שירות הנגישות מופעל</string>
-    <string name="accessibility_disabled">שירות הנגישות כבוי</string>
-    <string name="skip_ad_action">דילוג על פרסומת</string>
-    <string name="ad_detected">זוהתה פרסומת</string>
-    <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
-
-    <!-- מחרוזות חדשות -->
+    <!-- App Info -->
+    <string name="app_name">AdSkipper2</string>
     <string name="accessibility_service_label">AdSkipper - דילוג אוטומטי</string>
+    <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
+
+    <!-- Service Status -->
     <string name="service_running">השירות פעיל</string>
     <string name="service_stopped">השירות מושבת</string>
     <string name="scanning_active">סריקה פעילה</string>
     <string name="scanning_paused">סריקה מושהית</string>
-    <string name="scroll_success">בוצעה גלילה</string>
-    <string name="scroll_error">שגיאה בביצוע גלילה</string>
-    <string name="permissions_required">נדרשות הרשאות נוספות</string>
-    <string name="overlay_permission_required">נדרשת הרשאת שכבה-עליונה</string>
+
+    <!-- Actions -->
     <string name="start_service">הפעל שירות</string>
     <string name="stop_service">עצור שירות</string>
+    <string name="skip_ad_action">דילוג על פרסומת</string>
     <string name="auto_scroll">גלילה אוטומטית</string>
     <string name="manual_scroll">גלילה ידנית</string>
+
+    <!-- Status Messages -->
+    <string name="ad_detected">זוהתה פרסומת</string>
+    <string name="text_recognition_success">הטקסט זוהה בהצלחה</string>
+
+    <!-- Settings -->
     <string name="detection_sensitivity">רגישות זיהוי</string>
     <string name="scanning_interval">מרווח סריקה</string>
     <string name="target_apps">אפליקציות מטרה</string>
     <string name="target_text">טקסט לזיהוי</string>
+
+    <!-- Permissions -->
+    <string name="permissions_required">נדרשות הרשאות נוספות</string>
+    <string name="overlay_permission_required">נדרשת הרשאת שכבה-עליונה</string>
+    <string name="accessibility_enabled">שירות הנגישות מופעל</string>
+    <string name="accessibility_disabled">שירות הנגישות כבוי</string>
+
+    <!-- Errors -->
+    <string name="error_generic">שגיאה: %1$s</string>
+    <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
 </resources>
