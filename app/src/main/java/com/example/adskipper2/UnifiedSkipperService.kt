@@ -120,7 +120,11 @@ class UnifiedSkipperService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        event.packageName?.toString()?.let { packageName ->
+        // בדיקה שלא מדובר באפליקציה רגישה
+        val packageName = event.packageName?.toString()
+
+        // שימוש בשימת רשימה לבנה - נעבד רק אפליקציות שמוגדרות מראש
+        if (packageName != null && supportedApps.containsKey(packageName)) {
             currentAppConfig = supportedApps[packageName]
             if (currentAppConfig != null && !isPerformingAction) {
                 when (event.eventType) {

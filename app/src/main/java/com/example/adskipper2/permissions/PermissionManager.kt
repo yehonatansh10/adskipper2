@@ -17,10 +17,12 @@ import androidx.core.content.ContextCompat
 import com.example.adskipper2.R
 import com.example.adskipper2.UnifiedSkipperService
 import com.example.adskipper2.util.Logger
+import java.util.concurrent.atomic.AtomicBoolean
 
 class PermissionManager(private val activity: Activity) {
     companion object {
         private const val TAG = "PermissionManager"
+        private const val PERMISSION_CHECK_INTERVAL = 2000L // 2 seconds
     }
 
     private val requiredPermissions = mutableListOf<String>().apply {
@@ -31,6 +33,7 @@ class PermissionManager(private val activity: Activity) {
     }
 
     private lateinit var permissionLauncher: ActivityResultLauncher<Array<String>>
+    private val permissionCheckRunning = AtomicBoolean(false)
 
     fun setupPermissionLauncher(onPermissionsResult: (Boolean) -> Unit) {
         permissionLauncher = (activity as androidx.activity.ComponentActivity)
@@ -47,8 +50,12 @@ class PermissionManager(private val activity: Activity) {
 
         when {
             missingPermissions.isEmpty() -> {
-                // כל ההרשאות אושרו
-                onPermissionsGranted()
+                // בדיקה נוספת להרשאות מיוחדות
+                if (areSpecialPermissionsGranted()) {
+                    onPermissionsGranted()
+                } else {
+                    requestSpecialPermissions()
+                }
             }
 
             missingPermissions.any { ActivityCompat.shouldShowRequestPermissionRationale(activity, it) } -> {
@@ -62,6 +69,51 @@ class PermissionManager(private val activity: Activity) {
             }
         }
     }
+
+    private fun areSpecialPermissionsGranted(): Boolean {
+        val canDrawOverlays = Settings.canDrawOverlays(activity)
+        val accessibilityEnabled = isAccessibilityServiceEnabled(activity)
+        return canDrawOverlays && accessibilityEnabled
+    }
+
+    private fun requestSpecialPermissions() {
+        if (!Settings.canDrawOverlays(activity)) {
+            requestOverlayPermission { /* do nothing here */ }
+        } else if (!isAccessibilityServiceEnabled(activity)) {
+            requestAccessibilityPermission()
+        }
+    }
+
+    fun startPermissionVerification(onPermissionsChanged: (Boolean) -> Unit) {
+        if (permissionCheckRunning.compareAndSet(false, true)) {
+            val handler = android.os.Handler(android.os.Looper.getMainLooper())
+            val runnable = object : Runnable {
+                override fun run() {
+                    val allGranted = areAllPermissionsGranted()
+                    onPermissionsChanged(allGranted)
+                    if (permissionCheckRunning.get()) {
+                        handler.postDelayed(this, PERMISSION_CHECK_INTERVAL)
+                    }
+                }
+            }
+            handler.post(runnable)
+        }
+    }
+
+    fun stopPermissionVerification() {
+        permissionCheckRunning.set(false)
+    }
+
+    fun areAllPermissionsGranted(): Boolean {
+        // בדיקה של הרשאות רגילות
+        val regularPermissionsGranted = requiredPermissions.all {
+            ContextCompat.checkSelfPermission(activity, it) == PackageManager.PERMISSION_GRANTED
+        }
+
+        // בדיקה של הרשאות מיוחדות
+        return regularPermissionsGranted && areSpecialPermissionsGranted()
+    }
+
 
     private fun showPermissionRationaleDialog(permissions: Array<String>) {
         val message = buildRationaleMessage(permissions)

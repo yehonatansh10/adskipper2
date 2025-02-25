@@ -35,6 +35,7 @@ import java.io.File
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
 import com.example.adskipper2.util.Logger
+import com.example.adskipper2.util.InputValidator
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -186,7 +187,7 @@ class MainActivity : ComponentActivity() {
                     isServiceRunning = isServiceRunning.value,
                     currentMediaType = currentMediaType.value,
                     isRecording = isRecording.value,
-                    onAddApp = { selectedApps.value = selectedApps.value + it },
+                    onAddApp = { onAppSelected(it) },  // שימוש בפונקציה שהגדרנו
                     onRemoveApp = { selectedApps.value = selectedApps.value - it },
                     onAddContent = { saveTargetText(it) },
                     onRemoveContent = { selectedContent.value = selectedContent.value - it },
@@ -333,23 +334,45 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun saveTargetText(text: String) {
-        Logger.d(TAG, "Saving target text: $text")
-        selectedContent.value = selectedContent.value + text
+    // עדכון במחלקת MainActivity.kt
 
-        // שמירת המילה עבור כל אפליקציה נבחרת
-        prefs.edit().apply {
-            selectedApps.value.forEach { app ->
-                // שמירת המילה עם מזהה ייחודי
-                putString("${app.packageName}_target_${text.hashCode()}", text)
+    private fun saveSelectedImage(uri: Uri) {
+        Logger.d(TAG, "Saving selected image: $uri")
+
+        try {
+            // אימות ה-URI לפני שמירה
+            if (!InputValidator.validateContentUri(this, uri)) {
+                Toast.makeText(this, "התמונה שנבחרה אינה תקינה", Toast.LENGTH_SHORT).show()
+                return
             }
-            apply()
-        }
 
-        // רענון השירות
-        if (isServiceRunning.value) {
-            stopSkipperService()
-            startSkipperService()
+            val image = InputImage.fromFilePath(this, uri)
+            if (image.width < 100 || image.height < 100) {
+                Logger.d(TAG, "Image too small: ${image.width}x${image.height}")
+                Toast.makeText(this, "התמונה קטנה מדי. נא לבחור תמונה גדולה יותר", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            when (currentMediaType.value) {
+                "טקסט" -> recognizeText(image)
+            }
+
+            selectedApps.value.forEach { app ->
+                try {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        val outputFile = File(getExternalFilesDir(null), "${app.packageName}_target.jpg")
+                        outputFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Error saving image for ${app.packageName}: ${e.message}", e)
+                }
+            }
+            Toast.makeText(this, "התמונה נשמרה בהצלחה", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error saving image: ${e.message}", e)
+            Toast.makeText(this, "שגיאה בשמירת התמונה", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -497,36 +520,11 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    private fun saveSelectedImage(uri: Uri) {
-        Logger.d(TAG, "Saving selected image: $uri")
-        try {
-            val image = InputImage.fromFilePath(this, uri)
-            if (image.width < 100 || image.height < 100) {
-                Logger.d(TAG, "Image too small: ${image.width}x${image.height}")
-                Toast.makeText(this, "התמונה קטנה מדי. נא לבחור תמונה גדולה יותר", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            when (currentMediaType.value) {
-                "טקסט" -> recognizeText(image)
-            }
-
-            selectedApps.value.forEach { app ->
-                try {
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        File(getExternalFilesDir(null), "${app.packageName}_target.jpg")
-                            .outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                    }
-                } catch (e: Exception) {
-                    Logger.e(TAG, "Error saving image for ${app.packageName}: ${e.message}", e)
-                }
-            }
-            Toast.makeText(this, "התמונה נשמרה בהצלחה", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Logger.e(TAG, "Error saving image: ${e.message}", e)
-            Toast.makeText(this, "שגיאה בשמירת התמונה", Toast.LENGTH_SHORT).show()
+    private fun onAppSelected(app: AppInfo) {
+        if (InputValidator.validatePackageName(this, app.packageName)) {
+            selectedApps.value = selectedApps.value + app
+        } else {
+            Toast.makeText(this, "אפליקציה לא תקפה: ${app.name}", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -543,9 +541,9 @@ class MainActivity : ComponentActivity() {
         try {
             textRecognizer.process(image)
                 .addOnSuccessListener { visionText ->
-                    // סינון טקסט מזוהה למניעת הזרקת קוד
+                    // שימוש ב-InputValidator לניקוי הטקסט
                     val recognizedText = visionText.text.trim()
-                    val sanitizedText = sanitizeRecognizedText(recognizedText)
+                    val sanitizedText = InputValidator.validateText(recognizedText)
 
                     if (sanitizedText.isNotBlank()) {
                         Logger.d(TAG, "Text recognized: $sanitizedText")
@@ -566,6 +564,29 @@ class MainActivity : ComponentActivity() {
         } catch (e: Exception) {
             Logger.e(TAG, "Critical error in text recognition", e)
             Toast.makeText(this, "שגיאה קריטית בזיהוי טקסט", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun saveTargetText(text: String) {
+        // אימות הטקסט לפני שמירה
+        val validText = InputValidator.validateText(text)
+
+        Logger.d(TAG, "Saving target text: $validText")
+        selectedContent.value = selectedContent.value + validText
+
+        // שמירת המילה עבור כל אפליקציה נבחרת
+        prefs.edit().apply {
+            selectedApps.value.forEach { app ->
+                // שמירת המילה עם מזהה ייחודי
+                putString("${app.packageName}_target_${validText.hashCode()}", validText)
+            }
+            apply()
+        }
+
+        // רענון השירות
+        if (isServiceRunning.value) {
+            stopSkipperService()
+            startSkipperService()
         }
     }
 
