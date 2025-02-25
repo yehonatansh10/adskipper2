@@ -297,6 +297,37 @@ class UnifiedSkipperService : AccessibilityService() {
         }
     }
 
+    private fun isValidContent(node: AccessibilityNodeInfo?, keyword: String): Boolean {
+        if (node == null) return false
+
+        // בדיקת תוכן טקסט הצומת
+        val nodeText = node.text?.toString() ?: ""
+        val nodeContentDesc = node.contentDescription?.toString() ?: ""
+
+        // בדיקה בסיסית
+        if (nodeText.contains(keyword, ignoreCase = true) ||
+            nodeContentDesc.contains(keyword, ignoreCase = true)) {
+
+            // בדיקות נוספות - למנוע זיהוי שגוי
+
+            // אם הצומת קטן מדי - ייתכן שזה UI אחר ולא פרסומת
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            if (bounds.width() < 50 || bounds.height() < 20) {
+                return false
+            }
+
+            // בדיקת אורך טקסט (על פי רוב טקסט פרסומת קצר)
+            if (nodeText.length > 100 && !nodeText.contains("sponsored", ignoreCase = true)) {
+                return false
+            }
+
+            return true
+        }
+
+        return false
+    }
+
     private fun performScroll(scrollConfig: ScrollConfig) {
         if (isScrolling) return
 

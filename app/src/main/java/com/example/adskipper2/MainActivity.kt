@@ -532,20 +532,55 @@ class MainActivity : ComponentActivity() {
 
     private fun recognizeText(image: InputImage) {
         Logger.d(TAG, "Starting text recognition")
-        textRecognizer.process(image)
-            .addOnSuccessListener { visionText ->
-                val text = visionText.text.trim().replace("\n", " ").replace("\\s+".toRegex(), " ")
-                Logger.d(TAG, "Text recognized: $text")
-                selectedContent.value = selectedContent.value + text
-                recognizedContent.value = text
-                saveTargetText(text)
-                if (recordedActions.isNotEmpty()) {
-                    gesturePlayer.playActions(recordedActions)
+
+        // הגבלת גודל וסוג התמונה למניעת דליפות משאבים
+        if (image.width > 4000 || image.height > 4000) {
+            Logger.e(TAG, "Image too large: ${image.width}x${image.height}")
+            Toast.makeText(this, "התמונה גדולה מדי", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            textRecognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    // סינון טקסט מזוהה למניעת הזרקת קוד
+                    val recognizedText = visionText.text.trim()
+                    val sanitizedText = sanitizeRecognizedText(recognizedText)
+
+                    if (sanitizedText.isNotBlank()) {
+                        Logger.d(TAG, "Text recognized: $sanitizedText")
+                        selectedContent.value = selectedContent.value + sanitizedText
+                        recognizedContent.value = sanitizedText
+                        saveTargetText(sanitizedText)
+                        if (recordedActions.isNotEmpty()) {
+                            gesturePlayer.playActions(recordedActions)
+                        }
+                    } else {
+                        Toast.makeText(this, "לא זוהה טקסט משמעותי", Toast.LENGTH_SHORT).show()
+                    }
                 }
-            }
-            .addOnFailureListener { e ->
-                Logger.e(TAG, "Text recognition failed", e)
-                Toast.makeText(this, "שגיאה בזיהוי טקסט", Toast.LENGTH_SHORT).show()
-            }
+                .addOnFailureListener { e ->
+                    Logger.e(TAG, "Text recognition failed", e)
+                    Toast.makeText(this, "שגיאה בזיהוי טקסט", Toast.LENGTH_SHORT).show()
+                }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Critical error in text recognition", e)
+            Toast.makeText(this, "שגיאה קריטית בזיהוי טקסט", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun sanitizeRecognizedText(text: String): String {
+        // סינון תווים מיוחדים שעלולים לגרום לבעיות
+        var sanitized = text.replace("\n", " ").replace("\\s+".toRegex(), " ")
+
+        // הגבלת אורך
+        if (sanitized.length > 100) {
+            sanitized = sanitized.substring(0, 100)
+        }
+
+        // הסרת תווים מסוכנים לשאילתות
+        sanitized = sanitized.replace("[<>&\\\\/]".toRegex(), "")
+
+        return sanitized
     }
 }

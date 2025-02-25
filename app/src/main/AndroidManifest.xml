@@ -37,7 +37,9 @@
             android:name=".UnifiedSkipperService"
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:enabled="true"
-            android:exported="false">
+            android:exported="false"
+            android:isolatedProcess="true"
+            android:directBootAware="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
