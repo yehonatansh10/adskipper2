@@ -6,7 +6,7 @@
         </trust-anchors>
     </base-config>
 
-    <!-- אם יש שרתים ספציפיים, נוסיף אותם כך: -->
+    <!-- אם יש שרתים ספציפיים, נוסיף אותם כ: -->
     <!--
     <domain-config cleartextTrafficPermitted="false">
         <domain includeSubdomains="true">example.com</domain>
