@@ -76,12 +76,14 @@ class UnifiedSkipperService : AccessibilityService() {
             adKeywords = listOf(
                 "מודעה", "ממומן", "מוצע", "פוסט ממומן",
                 "שותפות בתשלום", "רוצה לנסות?",
-                "הצעות בשבילך",
+                "הצעות בשבילך", "ממומנות",
                 "Sponsored", "Suggested",
                 "Sponsored post", "Paid partnership",
                 "Suggested threads", "Get app",
                 "Turn your moments into a reel",
                 "Learn more", "Sign up", "Chat on WhatsApp",
+                "Get offer", "Get quote",
+                "Shop now", "Install now",
             ),
             scrollConfig = ScrollConfig()  // השתמש בקונפיגורציית ברירת המחדל
         ),
