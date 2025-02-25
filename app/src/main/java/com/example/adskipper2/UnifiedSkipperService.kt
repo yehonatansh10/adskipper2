@@ -169,10 +169,12 @@ class UnifiedSkipperService : AccessibilityService() {
     private fun checkContent() {
         if (isScrolling) return
 
+        var rootNode: AccessibilityNodeInfo? = null
+        var sponsoredNode: AccessibilityNodeInfo? = null
+
         try {
-            val rootNode = rootInActiveWindow ?: return
+            rootNode = rootInActiveWindow ?: return
             val appConfig = currentAppConfig ?: return
-            var sponsoredNode: AccessibilityNodeInfo? = null
 
             when (appConfig.packageName) {
                 "com.facebook.katana", "com.instagram.android" -> {
@@ -284,9 +286,14 @@ class UnifiedSkipperService : AccessibilityService() {
                 node.recycle()
             }
 
+            sponsoredNode?.recycle()
             rootNode.recycle()
         } catch (e: Exception) {
             logError("Error in checkContent", e)
+        } finally {
+            // וידוא שחרור משאבים גם במקרה של שגיאה
+            try { sponsoredNode?.recycle() } catch (e: Exception) { }
+            try { rootNode?.recycle() } catch (e: Exception) { }
         }
     }
 

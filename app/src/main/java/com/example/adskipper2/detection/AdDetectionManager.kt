@@ -12,6 +12,16 @@ class AdDetectionManager {
     // מילות מפתח לפי האפליקציה
     private val adKeywordsMap = buildKeywordsMap()
 
+    private var lastDetectedBounds: Rect? = null
+
+    private fun storeLastDetectedBounds(bounds: Rect) {
+        lastDetectedBounds = Rect(bounds)
+    }
+
+    fun getLastDetectedBounds(): Rect? {
+        return lastDetectedBounds?.let { Rect(it) }
+    }
+
     private fun buildKeywordsMap(): Map<String, Set<String>> {
         val map = HashMap<String, Set<String>>()
 
@@ -22,7 +32,7 @@ class AdDetectionManager {
             "לצפייה ב-stories", "תוכן פרסומי", "תוכן שיווקי",
             "Sponsored", "View Stories",
             "Swipe up for next post", "Swipe up to skip",
-            "Not interested", "LIVE now", "Tap to watch LIVE",
+            "LIVE now", "Tap to watch LIVE",
             "Paid partnership", "Sign up",
             "Follows you", "Follow back",
             "Promotional content", "Submit",
@@ -63,17 +73,26 @@ class AdDetectionManager {
             val keywords = adKeywordsMap[packageName] ?: return Pair(false, null)
 
             // לוגיקה ספציפית לאפליקציות מסוימות
-            when (packageName) {
+            val (found, bounds) = when (packageName) {
                 "com.facebook.katana", "com.instagram.android" -> {
-                    return detectSocialMediaAd(rootNode, keywords)
+                    detectSocialMediaAd(rootNode, keywords)
                 }
                 "com.google.android.youtube" -> {
-                    return detectYoutubeAd(rootNode, keywords)
+                    detectYoutubeAd(rootNode, keywords)
                 }
                 else -> {
-                    return detectGenericAd(rootNode, keywords)
+                    detectGenericAd(rootNode, keywords)
                 }
             }
+
+            if (found && bounds != null) {
+                // כאן אנחנו מעבירים את המידע על הגבולות לפונקציה אחרת במקום להחזיר אותו
+                storeLastDetectedBounds(bounds)
+                return Pair(true, null)
+            }
+
+            return Pair(false, null)
+
         } catch (e: Exception) {
             Logger.e(TAG, "Error during ad detection", e)
             return Pair(false, null)
@@ -83,34 +102,58 @@ class AdDetectionManager {
     private fun detectSocialMediaAd(rootNode: AccessibilityNodeInfo, keywords: Set<String>): Pair<Boolean, Rect?> {
         var hasReels = false
         var sponsoredNode: AccessibilityNodeInfo? = null
+        var reelsNode: AccessibilityNodeInfo? = null
 
-        // בדיקת Reels
-        findNodeByText(rootNode, "Reels")?.let { reelsNode ->
-            hasReels = true
-            reelsNode.recycle()
-        } ?: findNodeByText(rootNode, "ריל")?.let { reelsNode ->
-            hasReels = true
-            reelsNode.recycle()
-        }
-
-        // בדיקת ממומן/Sponsored
-        for (keyword in keywords) {
-            rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
-                if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
-                    node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
-
-                    val bounds = Rect()
-                    node.getBoundsInScreen(bounds)
-                    sponsoredNode = node
-                    return Pair(true, bounds)
+        try {
+            // נסה למצוא Reels
+            reelsNode = findNodeByText(rootNode, "Reels")
+            if (reelsNode != null) {
+                hasReels = true
+            } else {
+                reelsNode = findNodeByText(rootNode, "ריל")
+                if (reelsNode != null) {
+                    hasReels = true
                 }
-                node.recycle()
             }
-        }
 
-        // אם לא מצאנו צומת ספציפי או אין Reels, אין פרסומת
-        sponsoredNode?.recycle()
-        return Pair(false, null)
+            // בדיקת ממומן/Sponsored
+            for (keyword in keywords) {
+                val nodes = rootNode.findAccessibilityNodeInfosByText(keyword)
+                if (nodes != null) {
+                    for (node in nodes) {
+                        try {
+                            if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
+                                node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+
+                                val bounds = Rect()
+                                node.getBoundsInScreen(bounds)
+
+                                // שמור reference לשחרור מאוחר יותר
+                                sponsoredNode = node
+
+                                return Pair(true, bounds)
+                            }
+                        } finally {
+                            // שחרר nodes שאינם sponsoredNode
+                            if (node != sponsoredNode) {
+                                node.recycle()
+                            }
+                        }
+                    }
+                }
+            }
+
+            try {
+                return Pair(false, null)
+            } finally {
+                safeRecycle(sponsoredNode)
+            }
+
+        } finally {
+            // שחרר את כל ה-nodes
+            reelsNode?.recycle()
+            sponsoredNode?.recycle()
+        }
     }
 
     private fun detectYoutubeAd(rootNode: AccessibilityNodeInfo, keywords: Set<String>): Pair<Boolean, Rect?> {
@@ -144,6 +187,14 @@ class AdDetectionManager {
         // אם לא מצאנו צומת ספציפי או אין Dislike, אין פרסומת
         sponsoredNode?.recycle()
         return Pair(false, null)
+    }
+
+    private fun safeRecycle(node: AccessibilityNodeInfo?) {
+        try {
+            node?.recycle()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error recycling node", e)
+        }
     }
 
     private fun detectGenericAd(rootNode: AccessibilityNodeInfo, keywords: Set<String>): Pair<Boolean, Rect?> {

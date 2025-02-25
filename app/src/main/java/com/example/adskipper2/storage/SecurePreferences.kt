@@ -16,12 +16,25 @@ class SecurePreferences(private val context: Context) {
         try {
             MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                .setUserAuthenticationRequired(false)  // אל תדרוש אימות משתמש
+                .setRequestStrongBoxBacked(true)  // שימוש ב-StrongBox אם זמין
                 .build()
         } catch (e: Exception) {
-            Logger.e(TAG, "Error creating MasterKey, falling back to default", e)
-            MasterKey.Builder(context)
-                .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .build()
+            Logger.e(TAG, "Error creating MasterKey with StrongBox, falling back to default", e)
+            // נסיון שני ללא StrongBox
+            try {
+                MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .build()
+            } catch (e2: Exception) {
+                Logger.e(TAG, "Critical error creating MasterKey, using last resort", e2)
+                // פתרון אחרון במקרה כשל
+                MasterKey.Builder(context)
+                    .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
+                    .setRequestStrongBoxBacked(false)
+                    .setUserAuthenticationRequired(false)
+                    .build()
+            }
         }
     }
 
