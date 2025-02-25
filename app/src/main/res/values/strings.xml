@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- App Info -->
-    <string name="app_name">AdSkipper2</string>
+    <string name="app_name">Ad Skipper</string>
     <string name="accessibility_service_label">AdSkipper - דילוג אוטומטי</string>
     <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
 
@@ -37,4 +37,18 @@
     <!-- Errors -->
     <string name="error_generic">שגיאה: %1$s</string>
     <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
+
+    <!-- הסברי הרשאות -->
+    <string name="permission_rationale_intro">האפליקציה צריכה מספר הרשאות כדי לפעול כהלכה:</string>
+    <string name="permission_rationale_foreground_service">הרשאת שירות קדמי נדרשת כדי שהאפליקציה תוכל לפעול ברקע ולזהות פרסומות</string>
+    <string name="permission_rationale_notifications">הרשאת התראות נדרשת כדי להציג התראה כשהשירות פעיל</string>
+    <string name="overlay_permission_rationale">כדי לדלג על פרסומות, האפליקציה צריכה הרשאה להציג תוכן מעל אפליקציות אחרות</string>
+    <string name="accessibility_permission_required">נדרשת הרשאת נגישות</string>
+    <string name="accessibility_permission_rationale">כדי לזהות ולדלג על פרסומות, האפליקציה צריכה גישה לשירותי נגישות. אנא הפעל את שירות AdSkipper בהגדרות הנגישות.</string>
+
+    <!-- הודעות שגיאה/הצלחה -->
+    <string name="error_service_start">שגיאה בהפעלת השירות</string>
+    <string name="service_started_successfully">שירות הדילוג הופעל</string>
+    <string name="error_permissions">לא ניתן להפעיל את האפליקציה ללא ההרשאות הנדרשות</string>
+    <string name="battery_optimization">האפליקציה עשויה להיסגר ברקע. לחוויה מיטבית, בטל את אופטימיזציית הסוללה עבור אפליקציה זו</string>
 </resources>

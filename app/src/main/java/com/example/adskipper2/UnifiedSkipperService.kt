@@ -122,7 +122,11 @@ class UnifiedSkipperService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
-        event.packageName?.toString()?.let { packageName ->
+        // בדיקה שלא מדובר באפליקציה רגישה
+        val packageName = event.packageName?.toString()
+
+        // שימוש בשימת רשימה לבנה - נעבד רק אפליקציות שמוגדרות מראש
+        if (packageName != null && supportedApps.containsKey(packageName)) {
             currentAppConfig = supportedApps[packageName]
             if (currentAppConfig != null && !isPerformingAction) {
                 when (event.eventType) {
@@ -171,10 +175,12 @@ class UnifiedSkipperService : AccessibilityService() {
     private fun checkContent() {
         if (isScrolling) return
 
+        var rootNode: AccessibilityNodeInfo? = null
+        var sponsoredNode: AccessibilityNodeInfo? = null
+
         try {
-            val rootNode = rootInActiveWindow ?: return
+            rootNode = rootInActiveWindow ?: return
             val appConfig = currentAppConfig ?: return
-            var sponsoredNode: AccessibilityNodeInfo? = null
 
             when (appConfig.packageName) {
                 "com.facebook.katana", "com.instagram.android" -> {
@@ -286,10 +292,46 @@ class UnifiedSkipperService : AccessibilityService() {
                 node.recycle()
             }
 
+            sponsoredNode?.recycle()
             rootNode.recycle()
         } catch (e: Exception) {
             logError("Error in checkContent", e)
+        } finally {
+            // וידוא שחרור משאבים גם במקרה של שגיאה
+            try { sponsoredNode?.recycle() } catch (e: Exception) { }
+            try { rootNode?.recycle() } catch (e: Exception) { }
         }
+    }
+
+    private fun isValidContent(node: AccessibilityNodeInfo?, keyword: String): Boolean {
+        if (node == null) return false
+
+        // בדיקת תוכן טקסט הצומת
+        val nodeText = node.text?.toString() ?: ""
+        val nodeContentDesc = node.contentDescription?.toString() ?: ""
+
+        // בדיקה בסיסית
+        if (nodeText.contains(keyword, ignoreCase = true) ||
+            nodeContentDesc.contains(keyword, ignoreCase = true)) {
+
+            // בדיקות נוספות - למנוע זיהוי שגוי
+
+            // אם הצומת קטן מדי - ייתכן שזה UI אחר ולא פרסומת
+            val bounds = Rect()
+            node.getBoundsInScreen(bounds)
+            if (bounds.width() < 50 || bounds.height() < 20) {
+                return false
+            }
+
+            // בדיקת אורך טקסט (על פי רוב טקסט פרסומת קצר)
+            if (nodeText.length > 100 && !nodeText.contains("sponsored", ignoreCase = true)) {
+                return false
+            }
+
+            return true
+        }
+
+        return false
     }
 
     private fun performScroll(scrollConfig: ScrollConfig) {

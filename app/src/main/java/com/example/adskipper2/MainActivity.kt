@@ -34,6 +34,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
+import com.example.adskipper2.util.Logger
+import com.example.adskipper2.util.InputValidator
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -77,10 +79,10 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestMultiplePermissions()
     ) { permissions ->
         if (permissions.all { it.value }) {
-            Log.d(TAG, "All permissions granted")
+            Logger.d(TAG, "All permissions granted")
             initializeApp()
         } else {
-            Log.e(TAG, "Permissions not granted: ${permissions.filterValues { !it }.keys}")
+            Logger.e(TAG, "Permissions not granted: ${permissions.filterValues { !it }.keys}")
             Toast.makeText(this, "נדרשות הרשאות להפעלת האפליקציה", Toast.LENGTH_LONG).show()
             checkRequiredPermissions() // נסה שוב לבקש הרשאות
         }
@@ -88,7 +90,7 @@ class MainActivity : ComponentActivity() {
 
     private val pickImage = registerForActivityResult(ActivityResultContracts.GetContent()) { uri ->
         uri?.let {
-            Log.d(TAG, "Image selected: $uri")
+            Logger.d(TAG, "Image selected: $uri")
             if (checkStoragePermission()) saveSelectedImage(it)
             else requestStoragePermission()
         }
@@ -97,7 +99,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             super.onCreate(savedInstanceState)
-            Log.d(TAG, "App started")
+            Logger.d(TAG, "App started")
             initializeComponents()
             setupUI()
             setupTouchListener()
@@ -113,13 +115,13 @@ class MainActivity : ComponentActivity() {
 
             checkServiceStatus()
         } catch (e: Exception) {
-            Log.e(TAG, "Error in onCreate: ${e.message}", e)
+            Logger.e(TAG, "Error in onCreate: ${e.message}", e)
             Toast.makeText(this, "שגיאה באתחול האפליקציה", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun initializeComponents() {
-        Log.d(TAG, "Initializing components")
+        Logger.d(TAG, "Initializing components")
         prefs = getSharedPreferences("targets", MODE_PRIVATE)
         gestureRecorder = GestureRecorder()
         gesturePlayer = GesturePlayer(this)
@@ -128,7 +130,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun initializePrefs() {
-        Log.d(TAG, "Initializing preferences")
+        Logger.d(TAG, "Initializing preferences")
         if (!prefs.contains("selected_apps")) {
             prefs.edit().apply {
                 putStringSet("selected_apps", setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill"))
@@ -152,7 +154,7 @@ class MainActivity : ComponentActivity() {
                     packageName = packageName
                 )
             } catch (e: Exception) {
-                Log.e(TAG, "Error loading app info for $packageName", e)
+                Logger.e(TAG, "Error loading app info for $packageName", e)
                 null
             }
         }.toSet()
@@ -165,7 +167,7 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun setupUI() {
-        Log.d(TAG, "Setting up UI")
+        Logger.d(TAG, "Setting up UI")
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -185,7 +187,7 @@ class MainActivity : ComponentActivity() {
                     isServiceRunning = isServiceRunning.value,
                     currentMediaType = currentMediaType.value,
                     isRecording = isRecording.value,
-                    onAddApp = { selectedApps.value = selectedApps.value + it },
+                    onAddApp = { onAppSelected(it) },  // שימוש בפונקציה שהגדרנו
                     onRemoveApp = { selectedApps.value = selectedApps.value - it },
                     onAddContent = { saveTargetText(it) },
                     onRemoveContent = { selectedContent.value = selectedContent.value - it },
@@ -204,7 +206,7 @@ class MainActivity : ComponentActivity() {
             if (isRecording.value) {
                 when (event.action) {
                     MotionEvent.ACTION_DOWN -> {
-                        Log.d(TAG, "Touch event recorded: x=${event.x}, y=${event.y}")
+                        Logger.d(TAG, "Touch event recorded: x=${event.x}, y=${event.y}")
                         gestureRecorder.recordTap(event.x, event.y)
                     }
                 }
@@ -214,10 +216,10 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun startSkipperService() {
-        Log.d(TAG, "Starting skipper service")
+        Logger.d(TAG, "Starting skipper service")
 
         if (!Settings.canDrawOverlays(this) || !isAccessibilityServiceEnabled()) {
-            Log.d(TAG, "Missing permissions, requesting...")
+            Logger.d(TAG, "Missing permissions, requesting...")
             checkAllPermissions()
             return
         }
@@ -226,14 +228,14 @@ class MainActivity : ComponentActivity() {
             val serviceIntent = Intent(this, UnifiedSkipperService::class.java)
             if (!isServiceRunning(UnifiedSkipperService::class.java)) {
                 startService(serviceIntent)
-                Log.d(TAG, "Service started")
+                Logger.d(TAG, "Service started")
             } else {
-                Log.d(TAG, "Service already running")
+                Logger.d(TAG, "Service already running")
             }
             isServiceRunning.value = true
             saveServicePreferences()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to start service", e)
+            Logger.e(TAG, "Failed to start service", e)
             Toast.makeText(this, "שגיאה בהפעלת השירות", Toast.LENGTH_SHORT).show()
         }
     }
@@ -265,7 +267,7 @@ class MainActivity : ComponentActivity() {
                 Toast.LENGTH_LONG
             ).show()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open accessibility settings", e)
+            Logger.e(TAG, "Failed to open accessibility settings", e)
             Toast.makeText(
                 this,
                 "שגיאה בפתיחת הגדרות נגישות",
@@ -280,13 +282,13 @@ class MainActivity : ComponentActivity() {
             isServiceRunning.value = false
             Toast.makeText(this, "שירות הדילוג הופסק", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping service: ${e.message}", e)
+            Logger.e(TAG, "Error stopping service: ${e.message}", e)
         }
     }
 
     private fun checkServiceStatus() {
         val enabled = isAccessibilityServiceEnabled()
-        Log.d(TAG, "Accessibility service enabled: $enabled")
+        Logger.d(TAG, "Accessibility service enabled: $enabled")
         if (enabled) {
             isServiceRunning.value = isServiceRunning(UnifiedSkipperService::class.java)
         }
@@ -301,7 +303,7 @@ class MainActivity : ComponentActivity() {
                 }
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error checking if service is running", e)
+            Logger.e(TAG, "Error checking if service is running", e)
         }
         return false
     }
@@ -319,36 +321,58 @@ class MainActivity : ComponentActivity() {
                 Toast.LENGTH_LONG
             ).show()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open overlay settings", e)
+            Logger.e(TAG, "Failed to open overlay settings", e)
             Toast.makeText(this, "שגיאה בפתיחת הגדרות תצוגה", Toast.LENGTH_LONG).show()
         }
     }
 
     private fun handleMediaTypeChange(type: String) {
-        Log.d(TAG, "Media type changed to: $type")
+        Logger.d(TAG, "Media type changed to: $type")
         currentMediaType.value = type
         if (type == "תמונה" && checkStoragePermission()) {
             pickImage.launch("image/*")
         }
     }
 
-    private fun saveTargetText(text: String) {
-        Log.d(TAG, "Saving target text: $text")
-        selectedContent.value = selectedContent.value + text
+    // עדכון במחלקת MainActivity.kt
 
-        // שמירת המילה עבור כל אפליקציה נבחרת
-        prefs.edit().apply {
-            selectedApps.value.forEach { app ->
-                // שמירת המילה עם מזהה ייחודי
-                putString("${app.packageName}_target_${text.hashCode()}", text)
+    private fun saveSelectedImage(uri: Uri) {
+        Logger.d(TAG, "Saving selected image: $uri")
+
+        try {
+            // אימות ה-URI לפני שמירה
+            if (!InputValidator.validateContentUri(this, uri)) {
+                Toast.makeText(this, "התמונה שנבחרה אינה תקינה", Toast.LENGTH_SHORT).show()
+                return
             }
-            apply()
-        }
 
-        // רענון השירות
-        if (isServiceRunning.value) {
-            stopSkipperService()
-            startSkipperService()
+            val image = InputImage.fromFilePath(this, uri)
+            if (image.width < 100 || image.height < 100) {
+                Logger.d(TAG, "Image too small: ${image.width}x${image.height}")
+                Toast.makeText(this, "התמונה קטנה מדי. נא לבחור תמונה גדולה יותר", Toast.LENGTH_SHORT).show()
+                return
+            }
+
+            when (currentMediaType.value) {
+                "טקסט" -> recognizeText(image)
+            }
+
+            selectedApps.value.forEach { app ->
+                try {
+                    contentResolver.openInputStream(uri)?.use { input ->
+                        val outputFile = File(getExternalFilesDir(null), "${app.packageName}_target.jpg")
+                        outputFile.outputStream().use { output ->
+                            input.copyTo(output)
+                        }
+                    }
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Error saving image for ${app.packageName}: ${e.message}", e)
+                }
+            }
+            Toast.makeText(this, "התמונה נשמרה בהצלחה", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error saving image: ${e.message}", e)
+            Toast.makeText(this, "שגיאה בשמירת התמונה", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -366,7 +390,7 @@ class MainActivity : ComponentActivity() {
         ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
 
     private fun requestStoragePermission() {
-        Log.d(TAG, "Requesting storage permission")
+        Logger.d(TAG, "Requesting storage permission")
         ActivityCompat.requestPermissions(
             this,
             arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE),
@@ -375,15 +399,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun checkRequiredPermissions() {
-        Log.d(TAG, "Checking required permissions")
+        Logger.d(TAG, "Checking required permissions")
         val missingPermissions = REQUIRED_PERMISSIONS.filter {
             ContextCompat.checkSelfPermission(this, it) != PackageManager.PERMISSION_GRANTED
         }
         if (missingPermissions.isNotEmpty()) {
-            Log.d(TAG, "Missing permissions: $missingPermissions")
+            Logger.d(TAG, "Missing permissions: $missingPermissions")
             requestPermissionLauncher.launch(missingPermissions.toTypedArray())
         } else {
-            Log.d(TAG, "All required permissions granted")
+            Logger.d(TAG, "All required permissions granted")
             initializeApp()
         }
     }
@@ -398,15 +422,15 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun initializeApp() {
-        Log.d(TAG, "Initializing app")
+        Logger.d(TAG, "Initializing app")
         if (!isAccessibilityServiceEnabled()) {
-            Log.d(TAG, "Accessibility service not enabled")
+            Logger.d(TAG, "Accessibility service not enabled")
             requestAccessibilityPermission()
         }
     }
 
     private fun loadInstalledApps() {
-        Log.d(TAG, "Loading installed apps")
+        Logger.d(TAG, "Loading installed apps")
         val intent = Intent(Intent.ACTION_MAIN, null)
         intent.addCategory(Intent.CATEGORY_LAUNCHER)
 
@@ -423,24 +447,24 @@ class MainActivity : ComponentActivity() {
                     try {
                         isSystemApp(packageManager.getApplicationInfo(it.packageName, 0))
                     } catch (e: Exception) {
-                        Log.e(TAG, "Error checking system app status for ${it.packageName}", e)
+                        Logger.e(TAG, "Error checking system app status for ${it.packageName}", e)
                         true
                     }
                 }
                 .sortedBy { it.name }
         } catch (e: Exception) {
-            Log.e(TAG, "Error loading installed apps", e)
+            Logger.e(TAG, "Error loading installed apps", e)
             emptyList()
         }
 
-        Log.d(TAG, "Loaded ${availableApps.value.size} apps")
+        Logger.d(TAG, "Loaded ${availableApps.value.size} apps")
     }
 
     private fun isSystemApp(appInfo: ApplicationInfo) =
         appInfo.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
 
     private fun saveServicePreferences() {
-        Log.d(TAG, "Saving service preferences")
+        Logger.d(TAG, "Saving service preferences")
         prefs.edit().apply {
             putStringSet("selected_apps", selectedApps.value.map { it.packageName }.toSet())
             selectedApps.value.forEach { app ->
@@ -450,30 +474,30 @@ class MainActivity : ComponentActivity() {
             }
             apply()
         }
-        Log.d(TAG, "Service preferences saved successfully")
+        Logger.d(TAG, "Service preferences saved successfully")
     }
 
     private fun startRecording() {
-        Log.d(TAG, "Starting gesture recording request")
+        Logger.d(TAG, "Starting gesture recording request")
         try {
             if (isServiceRunning.value) {
                 gestureRecorder.startRecording()
                 isRecording.value = true
-                Log.d(TAG, "Recording started successfully")
+                Logger.d(TAG, "Recording started successfully")
                 Toast.makeText(this, "מקליט פעולות...", Toast.LENGTH_SHORT).show()
             } else {
-                Log.d(TAG, "Cannot start recording - service is not running")
+                Logger.d(TAG, "Cannot start recording - service is not running")
                 Toast.makeText(this, "אנא הפעל את השירות לפני תחילת ההקלטה", Toast.LENGTH_LONG).show()
                 startSkipperService()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error starting recording: ${e.message}", e)
+            Logger.e(TAG, "Error starting recording: ${e.message}", e)
             Toast.makeText(this, "שגיאה בהפעלת ההקלטה", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun stopRecording() {
-        Log.d(TAG, "Stopping gesture recording")
+        Logger.d(TAG, "Stopping gesture recording")
         try {
             gestureRecorder.stopRecording()
             isRecording.value = false
@@ -484,67 +508,100 @@ class MainActivity : ComponentActivity() {
                     putString("recorded_actions", recordedActions.toString())
                     apply()
                 }
-                Log.d(TAG, "Saved recorded actions: $recordedActions")
+                Logger.d(TAG, "Saved recorded actions: $recordedActions")
                 Toast.makeText(this, "הקלטת הפעולות הסתיימה", Toast.LENGTH_SHORT).show()
             } else {
                 Log.w(TAG, "No actions were recorded")
                 Toast.makeText(this, "לא הוקלטו פעולות", Toast.LENGTH_SHORT).show()
             }
         } catch (e: Exception) {
-            Log.e(TAG, "Error stopping recording: ${e.message}", e)
+            Logger.e(TAG, "Error stopping recording: ${e.message}", e)
             Toast.makeText(this, "שגיאה בשמירת ההקלטה", Toast.LENGTH_SHORT).show()
         }
     }
 
-    private fun saveSelectedImage(uri: Uri) {
-        Log.d(TAG, "Saving selected image: $uri")
-        try {
-            val image = InputImage.fromFilePath(this, uri)
-            if (image.width < 100 || image.height < 100) {
-                Log.d(TAG, "Image too small: ${image.width}x${image.height}")
-                Toast.makeText(this, "התמונה קטנה מדי. נא לבחור תמונה גדולה יותר", Toast.LENGTH_SHORT).show()
-                return
-            }
-
-            when (currentMediaType.value) {
-                "טקסט" -> recognizeText(image)
-            }
-
-            selectedApps.value.forEach { app ->
-                try {
-                    contentResolver.openInputStream(uri)?.use { input ->
-                        File(getExternalFilesDir(null), "${app.packageName}_target.jpg")
-                            .outputStream().use { output ->
-                                input.copyTo(output)
-                            }
-                    }
-                } catch (e: Exception) {
-                    Log.e(TAG, "Error saving image for ${app.packageName}: ${e.message}", e)
-                }
-            }
-            Toast.makeText(this, "התמונה נשמרה בהצלחה", Toast.LENGTH_SHORT).show()
-        } catch (e: Exception) {
-            Log.e(TAG, "Error saving image: ${e.message}", e)
-            Toast.makeText(this, "שגיאה בשמירת התמונה", Toast.LENGTH_SHORT).show()
+    private fun onAppSelected(app: AppInfo) {
+        if (InputValidator.validatePackageName(this, app.packageName)) {
+            selectedApps.value = selectedApps.value + app
+        } else {
+            Toast.makeText(this, "אפליקציה לא תקפה: ${app.name}", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun recognizeText(image: InputImage) {
-        Log.d(TAG, "Starting text recognition")
-        textRecognizer.process(image)
-            .addOnSuccessListener { visionText ->
-                val text = visionText.text.trim().replace("\n", " ").replace("\\s+".toRegex(), " ")
-                Log.d(TAG, "Text recognized: $text")
-                selectedContent.value = selectedContent.value + text
-                recognizedContent.value = text
-                saveTargetText(text)
-                if (recordedActions.isNotEmpty()) {
-                    gesturePlayer.playActions(recordedActions)
+        Logger.d(TAG, "Starting text recognition")
+
+        // הגבלת גודל וסוג התמונה למניעת דליפות משאבים
+        if (image.width > 4000 || image.height > 4000) {
+            Logger.e(TAG, "Image too large: ${image.width}x${image.height}")
+            Toast.makeText(this, "התמונה גדולה מדי", Toast.LENGTH_SHORT).show()
+            return
+        }
+
+        try {
+            textRecognizer.process(image)
+                .addOnSuccessListener { visionText ->
+                    // שימוש ב-InputValidator לניקוי הטקסט
+                    val recognizedText = visionText.text.trim()
+                    val sanitizedText = InputValidator.validateText(recognizedText)
+
+                    if (sanitizedText.isNotBlank()) {
+                        Logger.d(TAG, "Text recognized: $sanitizedText")
+                        selectedContent.value = selectedContent.value + sanitizedText
+                        recognizedContent.value = sanitizedText
+                        saveTargetText(sanitizedText)
+                        if (recordedActions.isNotEmpty()) {
+                            gesturePlayer.playActions(recordedActions)
+                        }
+                    } else {
+                        Toast.makeText(this, "לא זוהה טקסט משמעותי", Toast.LENGTH_SHORT).show()
+                    }
                 }
+                .addOnFailureListener { e ->
+                    Logger.e(TAG, "Text recognition failed", e)
+                    Toast.makeText(this, "שגיאה בזיהוי טקסט", Toast.LENGTH_SHORT).show()
+                }
+        } catch (e: Exception) {
+            Logger.e(TAG, "Critical error in text recognition", e)
+            Toast.makeText(this, "שגיאה קריטית בזיהוי טקסט", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    private fun saveTargetText(text: String) {
+        // אימות הטקסט לפני שמירה
+        val validText = InputValidator.validateText(text)
+
+        Logger.d(TAG, "Saving target text: $validText")
+        selectedContent.value = selectedContent.value + validText
+
+        // שמירת המילה עבור כל אפליקציה נבחרת
+        prefs.edit().apply {
+            selectedApps.value.forEach { app ->
+                // שמירת המילה עם מזהה ייחודי
+                putString("${app.packageName}_target_${validText.hashCode()}", validText)
             }
-            .addOnFailureListener { e ->
-                Log.e(TAG, "Text recognition failed", e)
-                Toast.makeText(this, "שגיאה בזיהוי טקסט", Toast.LENGTH_SHORT).show()
-            }
+            apply()
+        }
+
+        // רענון השירות
+        if (isServiceRunning.value) {
+            stopSkipperService()
+            startSkipperService()
+        }
+    }
+
+    private fun sanitizeRecognizedText(text: String): String {
+        // סינון תווים מיוחדים שעלולים לגרום לבעיות
+        var sanitized = text.replace("\n", " ").replace("\\s+".toRegex(), " ")
+
+        // הגבלת אורך
+        if (sanitized.length > 100) {
+            sanitized = sanitized.substring(0, 100)
+        }
+
+        // הסרת תווים מסוכנים לשאילתות
+        sanitized = sanitized.replace("[<>&\\\\/]".toRegex(), "")
+
+        return sanitized
     }
 }
