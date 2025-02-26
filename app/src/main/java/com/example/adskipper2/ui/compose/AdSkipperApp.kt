@@ -89,7 +89,7 @@ fun AdSkipperApp(
 
             // סטטוס שירות
             Text(
-                text = if (isServiceRunning) "השירות פעיל" else "השירות כבוי",
+                text = if (isServiceRunning) "On" else "Off",
                 color = Color.White,
                 fontSize = 16.sp,
                 modifier = Modifier.padding(top = 16.dp)

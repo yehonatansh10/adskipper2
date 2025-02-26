@@ -6,8 +6,8 @@
     <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
 
     <!-- Service Status -->
-    <string name="service_running">השירות פעיל</string>
-    <string name="service_stopped">השירות מושבת</string>
+    <string name="service_running">On</string>
+    <string name="service_stopped">Off</string>
     <string name="scanning_active">סריקה פעילה</string>
     <string name="scanning_paused">סריקה מושהית</string>
 
