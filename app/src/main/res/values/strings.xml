@@ -37,6 +37,10 @@
     <!-- Errors -->
     <string name="error_generic">שגיאה: %1$s</string>
     <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
+    <string name="critical_error_title">שגיאה קריטית</string>
+    <string name="critical_error_message">אירעה שגיאה קריטית באפליקציה. נסה לסגור ולפתוח אותה מחדש.</string>
+    <string name="error_low_memory">זיכרון נמוך במכשיר. סגור אפליקציות אחרות ונסה שוב.</string>
+    <string name="error_network">שגיאת תקשורת. בדוק את חיבור האינטרנט ונסה שוב.</string>
 
     <!-- הסברי הרשאות -->
     <string name="permission_rationale_intro">האפליקציה צריכה מספר הרשאות כדי לפעול כהלכה:</string>

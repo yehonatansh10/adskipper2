@@ -9,8 +9,10 @@ import android.os.Looper
 import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
+import com.example.adskipper2.util.ErrorHandler
 
 class UnifiedSkipperService : AccessibilityService() {
+    private lateinit var errorHandler: ErrorHandler
     companion object {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
@@ -115,10 +117,15 @@ class UnifiedSkipperService : AccessibilityService() {
     private val SCROLL_DIRECTION_WINDOW = 1000L
 
     override fun onServiceConnected() {
-        super.onServiceConnected()
-        displayWidth = resources.displayMetrics.widthPixels
-        displayHeight = resources.displayMetrics.heightPixels
-        logDebug("Service connected with dimensions: $displayWidth x $displayHeight")
+        try {
+            super.onServiceConnected()
+            errorHandler = ErrorHandler.getInstance(this)
+            displayWidth = resources.displayMetrics.widthPixels
+            displayHeight = resources.displayMetrics.heightPixels
+            logDebug("Service connected with dimensions: $displayWidth x $displayHeight")
+        } catch (e: Exception) {
+            logError("Error in onServiceConnected", e)
+        }
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
@@ -302,6 +309,7 @@ class UnifiedSkipperService : AccessibilityService() {
             rootNode.recycle()
         } catch (e: Exception) {
             logError("Error in checkContent", e)
+            errorHandler.handleError(TAG, e, false)
         } finally {
             // וידוא שחרור משאבים גם במקרה של שגיאה
             safeRecycle(sponsoredNode)

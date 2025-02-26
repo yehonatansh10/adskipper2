@@ -36,6 +36,7 @@ import android.view.accessibility.AccessibilityManager
 import android.content.Context
 import com.example.adskipper2.util.Logger
 import com.example.adskipper2.util.InputValidator
+import com.example.adskipper2.util.ErrorHandler
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -43,6 +44,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var prefs: SharedPreferences
     private lateinit var gestureRecorder: GestureRecorder
     private lateinit var gesturePlayer: GesturePlayer
+    private lateinit var errorHandler: ErrorHandler
     private val handler = Handler(Looper.getMainLooper())
     private var lastDetectionTime = 0L
     private val detectionInterval = 1000L
@@ -121,12 +123,18 @@ class MainActivity : ComponentActivity() {
     }
 
     private fun initializeComponents() {
-        Logger.d(TAG, "Initializing components")
-        prefs = getSharedPreferences("targets", MODE_PRIVATE)
-        gestureRecorder = GestureRecorder()
-        gesturePlayer = GesturePlayer(this)
-        loadInstalledApps()
-        initializePrefs()
+        try {
+            Logger.d(TAG, "Initializing components")
+            errorHandler = ErrorHandler.getInstance(this)
+            prefs = getSharedPreferences("targets", MODE_PRIVATE)
+            gestureRecorder = GestureRecorder()
+            gesturePlayer = GesturePlayer(this)
+            loadInstalledApps()
+            initializePrefs()
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error in initializeComponents", e)
+            errorHandler.handleError(TAG, e)
+        }
     }
 
     private fun initializePrefs() {
@@ -235,8 +243,7 @@ class MainActivity : ComponentActivity() {
             isServiceRunning.value = true
             saveServicePreferences()
         } catch (e: Exception) {
-            Logger.e(TAG, "Failed to start service", e)
-            Toast.makeText(this, "שגיאה בהפעלת השירות", Toast.LENGTH_SHORT).show()
+            errorHandler.handleError(TAG, e)
         }
     }
 
