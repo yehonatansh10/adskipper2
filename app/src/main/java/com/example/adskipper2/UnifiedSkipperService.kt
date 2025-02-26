@@ -10,9 +10,11 @@ import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.adskipper2.util.ErrorHandler
+import com.example.adskipper2.analytics.AnalyticsManager
 
 class UnifiedSkipperService : AccessibilityService() {
     private lateinit var errorHandler: ErrorHandler
+    private lateinit var analyticsManager: AnalyticsManager
     companion object {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
@@ -120,6 +122,7 @@ class UnifiedSkipperService : AccessibilityService() {
         try {
             super.onServiceConnected()
             errorHandler = ErrorHandler.getInstance(this)
+            analyticsManager = AnalyticsManager.getInstance(this)
             displayWidth = resources.displayMetrics.widthPixels
             displayHeight = resources.displayMetrics.heightPixels
             logDebug("Service connected with dimensions: $displayWidth x $displayHeight")
@@ -371,6 +374,11 @@ class UnifiedSkipperService : AccessibilityService() {
                 .addStroke(GestureDescription.StrokeDescription(path, 0, scrollConfig.duration))
                 .build()
 
+            // תיעוד דילוג על פרסומת
+            currentAppConfig?.let { config ->
+                analyticsManager.trackAdDetection(config.packageName, true)
+            }
+
             dispatchGesture(gestureDescription, object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription) {
                     handler.postDelayed({
@@ -381,11 +389,17 @@ class UnifiedSkipperService : AccessibilityService() {
                 override fun onCancelled(gestureDescription: GestureDescription) {
                     handler.post {
                         isScrolling = false
+
+                        // תיעוד כישלון בדילוג
+                        currentAppConfig?.let { config ->
+                            analyticsManager.trackError("scroll_cancelled", "Scroll gesture cancelled for ${config.packageName}")
+                        }
                     }
                 }
             }, null)
         } catch (e: Exception) {
             logError("Error during scroll", e)
+            errorHandler.handleError(TAG, e, false)
             isScrolling = false
         }
     }

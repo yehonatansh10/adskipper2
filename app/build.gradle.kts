@@ -91,6 +91,13 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit.core)
+    testImplementation(libs.junit.core)
+    testImplementation("org.mockito:mockito-core:5.10.0")
+    testImplementation("org.mockito:mockito-inline:5.10.0")
+    testImplementation("org.mockito.kotlin:mockito-kotlin:5.2.1")
+    androidTestImplementation(libs.junit.android)
+    androidTestImplementation(libs.espresso)
+    androidTestImplementation(libs.compose.ui.test.junit4)
     androidTestImplementation(libs.junit.android)
     androidTestImplementation(libs.espresso)
     androidTestImplementation(libs.compose.ui.test.junit4)

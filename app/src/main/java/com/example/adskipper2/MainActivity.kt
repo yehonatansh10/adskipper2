@@ -37,6 +37,11 @@ import android.content.Context
 import com.example.adskipper2.util.Logger
 import com.example.adskipper2.util.InputValidator
 import com.example.adskipper2.util.ErrorHandler
+import com.example.adskipper2.analytics.AnalyticsManager
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.adskipper2.ui.compose.StatsScreen
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -45,6 +50,8 @@ class MainActivity : ComponentActivity() {
     private lateinit var gestureRecorder: GestureRecorder
     private lateinit var gesturePlayer: GesturePlayer
     private lateinit var errorHandler: ErrorHandler
+    private lateinit var analyticsManager: AnalyticsManager
+    private var showStatsScreen by mutableStateOf(false)
     private val handler = Handler(Looper.getMainLooper())
     private var lastDetectionTime = 0L
     private val detectionInterval = 1000L
@@ -126,6 +133,7 @@ class MainActivity : ComponentActivity() {
         try {
             Logger.d(TAG, "Initializing components")
             errorHandler = ErrorHandler.getInstance(this)
+            analyticsManager = AnalyticsManager.getInstance(this)
             prefs = getSharedPreferences("targets", MODE_PRIVATE)
             gestureRecorder = GestureRecorder()
             gesturePlayer = GesturePlayer(this)
@@ -187,24 +195,32 @@ class MainActivity : ComponentActivity() {
                     onBackground = Color.White
                 )
             ) {
-                AdSkipperApp(
-                    selectedApps = selectedApps.value,
-                    availableApps = availableApps.value,
-                    selectedContent = selectedContent.value,
-                    recognizedContent = recognizedContent.value,
-                    isServiceRunning = isServiceRunning.value,
-                    currentMediaType = currentMediaType.value,
-                    isRecording = isRecording.value,
-                    onAddApp = { onAppSelected(it) },  // שימוש בפונקציה שהגדרנו
-                    onRemoveApp = { selectedApps.value = selectedApps.value - it },
-                    onAddContent = { saveTargetText(it) },
-                    onRemoveContent = { selectedContent.value = selectedContent.value - it },
-                    onMediaTypeChange = { handleMediaTypeChange(it) },
-                    onStartService = { startSkipperService() },
-                    onStopService = { stopSkipperService() },
-                    onStartRecording = { startRecording() },
-                    onStopRecording = { stopRecording() }
-                )
+                if (showStatsScreen) {
+                    StatsScreen(
+                        usageStats = analyticsManager.getUsageStats(),
+                        onBackClick = { showStatsScreen = false }
+                    )
+                } else {
+                    AdSkipperApp(
+                        selectedApps = selectedApps.value,
+                        availableApps = availableApps.value,
+                        selectedContent = selectedContent.value,
+                        recognizedContent = recognizedContent.value,
+                        isServiceRunning = isServiceRunning.value,
+                        currentMediaType = currentMediaType.value,
+                        isRecording = isRecording.value,
+                        onAddApp = { onAppSelected(it) },
+                        onRemoveApp = { selectedApps.value = selectedApps.value - it },
+                        onAddContent = { saveTargetText(it) },
+                        onRemoveContent = { selectedContent.value = selectedContent.value - it },
+                        onMediaTypeChange = { handleMediaTypeChange(it) },
+                        onStartService = { startSkipperService() },
+                        onStopService = { stopSkipperService() },
+                        onStartRecording = { startRecording() },
+                        onStopRecording = { stopRecording() },
+                        onOpenStats = { showStatsScreen = true }
+                    )
+                }
             }
         }
     }

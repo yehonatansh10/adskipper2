@@ -22,6 +22,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.adskipper2.AppInfo
+import androidx.compose.material.icons.filled.Analytics
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,7 +42,8 @@ fun AdSkipperApp(
     onStartService: () -> Unit,
     onStopService: () -> Unit,
     onStartRecording: () -> Unit,
-    onStopRecording: () -> Unit
+    onStopRecording: () -> Unit,
+    onOpenStats: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -96,6 +98,22 @@ fun AdSkipperApp(
             )
 
             Spacer(modifier = Modifier.height(32.dp))
+
+            // כפתור סטטיסטיקות - חדש
+            Button(
+                onClick = onOpenStats,
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF333333)
+                ),
+                modifier = Modifier.padding(top = 16.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.Analytics,
+                    contentDescription = "סטטיסטיקות",
+                    modifier = Modifier.padding(end = 8.dp)
+                )
+                Text("סטטיסטיקות")
+            }
         }
     }
 }
