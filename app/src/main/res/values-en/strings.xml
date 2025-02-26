@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Legal -->
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
+    <string name="legal_agreement_title">User Agreement</string>
+    <string name="legal_agreement_message">To use the app, you must agree to our Terms of Service and Privacy Policy.</string>
+    <string name="i_agree">I Agree</string>
+    <string name="review_privacy">Read Privacy Policy</string>
+    <string name="review_terms">Read Terms of Service</string>
+    <string name="language_switch">Switch Language</string>
+</resources>

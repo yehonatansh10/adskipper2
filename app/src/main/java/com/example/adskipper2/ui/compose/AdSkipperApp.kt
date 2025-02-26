@@ -23,6 +23,8 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.adskipper2.AppInfo
 import androidx.compose.material.icons.filled.Analytics
+import androidx.compose.ui.res.stringResource
+import com.example.adskipper2.R
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -43,7 +45,9 @@ fun AdSkipperApp(
     onStopService: () -> Unit,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
-    onOpenStats: () -> Unit
+    onOpenStats: () -> Unit,
+    onOpenPrivacyPolicy: () -> Unit,
+    onOpenTermsOfService: () -> Unit
 ) {
     Box(
         modifier = Modifier
@@ -109,10 +113,39 @@ fun AdSkipperApp(
             ) {
                 Icon(
                     imageVector = Icons.Default.Analytics,
-                    contentDescription = "סטטיסטיקות",
+                    contentDescription = "Statistics",
                     modifier = Modifier.padding(end = 8.dp)
                 )
-                Text("סטטיסטיקות")
+                Text("Statistics")
+            }
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 16.dp),
+        contentAlignment = Alignment.BottomCenter
+    ) {
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            TextButton(
+                onClick = onOpenPrivacyPolicy,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.LightGray
+                )
+            ) {
+                Text("Privacy Policy", fontSize = 12.sp)
+            }
+
+            TextButton(
+                onClick = onOpenTermsOfService,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.LightGray
+                )
+            ) {
+                Text("Terms of Use", fontSize = 12.sp)
             }
         }
     }

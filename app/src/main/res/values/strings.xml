@@ -55,4 +55,14 @@
     <string name="service_started_successfully">שירות הדילוג הופעל</string>
     <string name="error_permissions">לא ניתן להפעיל את האפליקציה ללא ההרשאות הנדרשות</string>
     <string name="battery_optimization">האפליקציה עשויה להיסגר ברקע. לחוויה מיטבית, בטל את אופטימיזציית הסוללה עבור אפליקציה זו</string>
+
+    <!-- Legal -->
+    <string name="privacy_policy">מדיניות פרטיות</string>
+    <string name="terms_of_service">תנאי שימוש</string>
+    <string name="legal_agreement_message">כדי להשתמש באפליקציה, עליך להסכים לתנאי השימוש ולמדיניות הפרטיות שלנו.</string>
+    <string name="i_agree">אני מסכים</string>
+    <string name="review_privacy">קרא מדיניות פרטיות</string>
+    <string name="review_terms">קרא תנאי שימוש</string>
+    <string name="language_switch">החלף שפה</string>
+    <string name="legal_agreement_title">הסכם משתמש</string>
 </resources>

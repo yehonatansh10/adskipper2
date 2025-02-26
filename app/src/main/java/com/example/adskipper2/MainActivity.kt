@@ -42,6 +42,13 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.example.adskipper2.ui.compose.StatsScreen
+import com.example.adskipper2.ui.compose.LegalScreen
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.example.adskipper2.ui.compose.LegalAgreementDialog
+import com.example.adskipper2.ui.compose.LegalDocumentType
+import com.example.adskipper2.ui.compose.LegalScreen
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -51,6 +58,11 @@ class MainActivity : ComponentActivity() {
     private lateinit var gesturePlayer: GesturePlayer
     private lateinit var errorHandler: ErrorHandler
     private lateinit var analyticsManager: AnalyticsManager
+    private var showLegalScreen by mutableStateOf(false)
+    private var currentLegalDocument by mutableStateOf(LegalDocumentType.PRIVACY_POLICY_HEBREW)
+    private var showLegalAgreementDialog by mutableStateOf(false)
+    private var showPrivacyPolicy by mutableStateOf(false)
+    private var showTermsOfService by mutableStateOf(false)
     private var showStatsScreen by mutableStateOf(false)
     private val handler = Handler(Looper.getMainLooper())
     private var lastDetectionTime = 0L
@@ -110,6 +122,7 @@ class MainActivity : ComponentActivity() {
             super.onCreate(savedInstanceState)
             Logger.d(TAG, "App started")
             initializeComponents()
+            checkLegalAgreement()
             setupUI()
             setupTouchListener()
 
@@ -127,6 +140,26 @@ class MainActivity : ComponentActivity() {
             Logger.e(TAG, "Error in onCreate: ${e.message}", e)
             Toast.makeText(this, "שגיאה באתחול האפליקציה", Toast.LENGTH_LONG).show()
         }
+    }
+
+    // בדיקה אם המשתמש כבר הסכים לתנאים בעבר
+    private fun checkLegalAgreement() {
+        val prefs = getSharedPreferences("legal_prefs", MODE_PRIVATE)
+        val hasAgreed = prefs.getBoolean("has_agreed_to_terms", false)
+
+        if (!hasAgreed) {
+            showLegalAgreementDialog = true
+        }
+    }
+
+    // שמירת הסכמת המשתמש
+    private fun saveLegalAgreement() {
+        getSharedPreferences("legal_prefs", MODE_PRIVATE)
+            .edit()
+            .putBoolean("has_agreed_to_terms", true)
+            .apply()
+
+        showLegalAgreementDialog = false
     }
 
     private fun initializeComponents() {
@@ -184,6 +217,8 @@ class MainActivity : ComponentActivity() {
 
     private fun setupUI() {
         Logger.d(TAG, "Setting up UI")
+        val isHebrew = resources.configuration.locales[0].language == "he"
+
         setContent {
             MaterialTheme(
                 colorScheme = darkColorScheme(
@@ -195,31 +230,61 @@ class MainActivity : ComponentActivity() {
                     onBackground = Color.White
                 )
             ) {
-                if (showStatsScreen) {
-                    StatsScreen(
-                        usageStats = analyticsManager.getUsageStats(),
-                        onBackClick = { showStatsScreen = false }
-                    )
-                } else {
-                    AdSkipperApp(
-                        selectedApps = selectedApps.value,
-                        availableApps = availableApps.value,
-                        selectedContent = selectedContent.value,
-                        recognizedContent = recognizedContent.value,
-                        isServiceRunning = isServiceRunning.value,
-                        currentMediaType = currentMediaType.value,
-                        isRecording = isRecording.value,
-                        onAddApp = { onAppSelected(it) },
-                        onRemoveApp = { selectedApps.value = selectedApps.value - it },
-                        onAddContent = { saveTargetText(it) },
-                        onRemoveContent = { selectedContent.value = selectedContent.value - it },
-                        onMediaTypeChange = { handleMediaTypeChange(it) },
-                        onStartService = { startSkipperService() },
-                        onStopService = { stopSkipperService() },
-                        onStartRecording = { startRecording() },
-                        onStopRecording = { stopRecording() },
-                        onOpenStats = { showStatsScreen = true }
-                    )
+                when {
+                    showLegalScreen -> {
+                        LegalScreen(
+                            initialDocumentType = currentLegalDocument,
+                            onBackClick = { showLegalScreen = false }
+                        )
+                    }
+                    else -> {
+                        AdSkipperApp(
+                            selectedApps = selectedApps.value,
+                            availableApps = availableApps.value,
+                            selectedContent = selectedContent.value,
+                            recognizedContent = recognizedContent.value,
+                            isServiceRunning = isServiceRunning.value,
+                            currentMediaType = currentMediaType.value,
+                            isRecording = isRecording.value,
+                            onAddApp = { onAppSelected(it) },
+                            onRemoveApp = { selectedApps.value = selectedApps.value - it },
+                            onAddContent = { saveTargetText(it) },
+                            onRemoveContent = { selectedContent.value = selectedContent.value - it },
+                            onMediaTypeChange = { handleMediaTypeChange(it) },
+                            onStartService = { startSkipperService() },
+                            onStopService = { stopSkipperService() },
+                            onStartRecording = { startRecording() },
+                            onStopRecording = { stopRecording() },
+                            onOpenStats = { showStatsScreen = true }, // הוסף את השורה הזאת
+                            onOpenPrivacyPolicy = {
+                                currentLegalDocument = LegalDocumentType.getPrivacyPolicy(isHebrew)
+                                showLegalScreen = true
+                            },
+                            onOpenTermsOfService = {
+                                currentLegalDocument = LegalDocumentType.getTermsOfService(isHebrew)
+                                showLegalScreen = true
+                            }
+                        )
+
+                        // הצגת דיאלוג הסכמה אם נדרש
+                        if (showLegalAgreementDialog) {
+                            LegalAgreementDialog(
+                                isHebrew = isHebrew,
+                                onDismiss = { finish() }, // סגירת האפליקציה אם המשתמש לא מסכים
+                                onAgree = { saveLegalAgreement() },
+                                onViewPrivacyPolicy = {
+                                    currentLegalDocument = LegalDocumentType.getPrivacyPolicy(isHebrew)
+                                    showLegalScreen = true
+                                    showLegalAgreementDialog = false // להסתיר זמנית את הדיאלוג
+                                },
+                                onViewTermsOfService = {
+                                    currentLegalDocument = LegalDocumentType.getTermsOfService(isHebrew)
+                                    showLegalScreen = true
+                                    showLegalAgreementDialog = false // להסתיר זמנית את הדיאלוג
+                                }
+                            )
+                        }
+                    }
                 }
             }
         }
