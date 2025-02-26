@@ -38,7 +38,7 @@
             android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
             android:enabled="true"
             android:exported="false"
-            android:isolatedProcess="true"
+            android:isolatedProcess="false"
             android:directBootAware="false">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />

@@ -20,21 +20,25 @@ object InputValidator {
 
     // בדיקת קלט טקסט
     fun validateText(text: String): String {
-        // בדיקה אם הטקסט ארוך מדי
-        if (text.length > 1000) {
-            return text.substring(0, 1000)
+        // קיצור טקסט ארוך מדי
+        val truncated = if (text.length > 1000) {
+            text.substring(0, 1000)
+        } else {
+            text
         }
+
+        // סינון תווים מסוכנים
+        var sanitized = truncated.replace("[<>&'\"\\\\/]".toRegex(), "")
+
+        // הסרת תגיות HTML
+        sanitized = sanitized.replace("<[^>]*>".toRegex(), "")
 
         // בדיקת תבניות זדוניות
-        var sanitized = text
         for (pattern in MALICIOUS_PATTERNS) {
-            if (pattern.matcher(sanitized).find()) {
-                Logger.d(TAG, "Found potentially malicious pattern in input")
-                sanitized = pattern.matcher(sanitized).replaceAll("")
-            }
+            sanitized = pattern.matcher(sanitized).replaceAll("")
         }
 
-        return sanitized
+        return sanitized.trim()
     }
 
     // בדיקת תקינות של נתיב קובץ
@@ -83,9 +87,26 @@ object InputValidator {
     fun validatePackageName(context: Context, packageName: String): Boolean {
         if (packageName.isBlank()) return false
 
-        // בדיקה שחבילה בפורמט תקין
+        // בדיקת אורך סביר
+        if (packageName.length > 255) return false
+
+        // בדיקה שחבילה בפורמט תקין יותר
         if (!packageName.matches(Regex("^[a-zA-Z][a-zA-Z0-9_]*(\\.[a-zA-Z][a-zA-Z0-9_]*)+$"))) {
             Logger.d(TAG, "Invalid package name format: $packageName")
+            return false
+        }
+
+        // רשימה שחורה של חבילות שאסור להשתמש בהן
+        val blacklistedPackages = setOf(
+            "com.android.settings",
+            "com.android.systemui",
+            "android",
+            "com.android.phone"
+            // הוסף חבילות רגישות נוספות
+        )
+
+        if (blacklistedPackages.contains(packageName)) {
+            Logger.d(TAG, "Package is blacklisted: $packageName")
             return false
         }
 

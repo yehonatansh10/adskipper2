@@ -570,20 +570,31 @@ class MainActivity : ComponentActivity() {
     private fun saveTargetText(text: String) {
         // אימות הטקסט לפני שמירה
         val validText = InputValidator.validateText(text)
+        if (validText.isBlank()) {
+            Logger.d(TAG, "Empty text after validation, ignoring")
+            return
+        }
 
-        Logger.d(TAG, "Saving target text: $validText")
+        if (validText.length > 100) {
+            Logger.d(TAG, "Text too long, truncating")
+        }
+
+        Logger.d(TAG, "Saving target text: ${Logger.sanitizeMessage(validText)}")
         selectedContent.value = selectedContent.value + validText
 
         // שמירת המילה עבור כל אפליקציה נבחרת
         prefs.edit().apply {
             selectedApps.value.forEach { app ->
-                // שמירת המילה עם מזהה ייחודי
-                putString("${app.packageName}_target_${validText.hashCode()}", validText)
+                // אימות שם החבילה לפני שימוש כמפתח
+                if (InputValidator.validatePackageName(this@MainActivity, app.packageName)) {
+                    // שמירת המילה עם מזהה ייחודי
+                    putString("${app.packageName}_target_${validText.hashCode()}", validText)
+                }
             }
             apply()
         }
 
-        // רענון השירות
+        // רענון השירות רק אם הוא רץ כבר
         if (isServiceRunning.value) {
             stopSkipperService()
             startSkipperService()

@@ -61,12 +61,12 @@ class SecurePreferences(private val context: Context) {
 
             encryptedPrefs
         } catch (e: Exception) {
-            Logger.e(TAG, "Failed to create EncryptedSharedPreferences", e)
+            Logger.e(TAG, "Failed to create EncryptedSharedPreferences: ${Logger.sanitizeMessage(e.message ?: "Unknown error")}", e)
 
-            // במקרה של כישלון, השתמש בהעדפות רגילות אבל עם העברת המשתמש
+            // במקרה של כישלון, השתמש בהעדפות רגילות אבל עם הגבלות
             showEncryptionFailureNotification()
 
-            // ביצירת העדפות רגילות, עדיין לא נשמור מידע רגיש
+            // יצירת העדפות רגילות, אבל עם הגבלת מידע רגיש
             val fallbackPrefs = context.getSharedPreferences(FALLBACK_PREF_NAME, Context.MODE_PRIVATE)
             fallbackPrefs.edit().putBoolean(ENCRYPTED_INDICATOR, false).apply()
 

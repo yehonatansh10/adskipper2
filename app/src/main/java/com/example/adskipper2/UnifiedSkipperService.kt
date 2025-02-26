@@ -182,6 +182,12 @@ class UnifiedSkipperService : AccessibilityService() {
             rootNode = rootInActiveWindow ?: return
             val appConfig = currentAppConfig ?: return
 
+            // ולידציה וקיצור דרך מוקדם בקוד
+            if (!supportedApps.containsKey(appConfig.packageName)) {
+                return
+            }
+
+            // המשך הלוגיקה המקורית עם טיפול מאובטח יותר בצומת
             when (appConfig.packageName) {
                 "com.facebook.katana", "com.instagram.android" -> {
                     var hasReels = false
@@ -298,8 +304,17 @@ class UnifiedSkipperService : AccessibilityService() {
             logError("Error in checkContent", e)
         } finally {
             // וידוא שחרור משאבים גם במקרה של שגיאה
-            try { sponsoredNode?.recycle() } catch (e: Exception) { }
-            try { rootNode?.recycle() } catch (e: Exception) { }
+            safeRecycle(sponsoredNode)
+            safeRecycle(rootNode)
+        }
+    }
+
+    private fun safeRecycle(node: AccessibilityNodeInfo?) {
+        try {
+            node?.recycle()
+        } catch (e: Exception) {
+            // לכידת שגיאות שעלולות להיגרם בשחרור הצומת
+            logError("Error recycling node", e)
         }
     }
 

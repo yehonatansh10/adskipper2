@@ -6,38 +6,37 @@ import java.util.regex.Pattern
 
 object Logger {
     private const val TAG_PREFIX = "AdSkipper_"
+    private const val MAX_LOG_LENGTH = 1000 // הגבלת אורך הודעות היומן
 
     private val SENSITIVE_PATTERNS = arrayOf(
-        Pattern.compile("password|pwd", Pattern.CASE_INSENSITIVE),
-        Pattern.compile("token|api[_-]?key", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("password|pwd|token|key", Pattern.CASE_INSENSITIVE),
         Pattern.compile("\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}"), // כרטיסי אשראי
-        Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}") // אימיילים
+        Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}"), // אימיילים
+        Pattern.compile("/.*/.*/") // נתיבי קבצים
     )
 
     private var logLevel = if (BuildConfig.DEBUG) Log.VERBOSE else Log.ERROR
 
-    // הגדרת רמת לוג
-    fun setLogLevel(level: Int) {
-        logLevel = level
-    }
-
+    // טיפול בהודעות ארוכות ורגישות
     fun d(tag: String, message: String) {
         if (BuildConfig.DEBUG) {
-            Log.d("$TAG_PREFIX$tag", message)
+            val safeMessage = truncateAndSanitize(message)
+            Log.d("$TAG_PREFIX$tag", safeMessage)
         }
     }
 
     fun e(tag: String, message: String, throwable: Throwable? = null) {
+        val safeMessage = truncateAndSanitize(message)
+
         if (throwable != null) {
-            Log.e("$TAG_PREFIX$tag", message, throwable)
+            Log.e("$TAG_PREFIX$tag", safeMessage, throwable)
         } else {
-            Log.e("$TAG_PREFIX$tag", message)
+            Log.e("$TAG_PREFIX$tag", safeMessage)
         }
 
         // בגרסת שחרור, שמור שגיאות קריטיות במסד נתונים מקומי ללא מידע רגיש
         if (!BuildConfig.DEBUG) {
             // כאן ניתן להוסיף לוגיקה לשמירת שגיאות לשימוש בעתיד
-            // saveErrorToLocalStorage(tag, message)
         }
     }
 
@@ -52,10 +51,14 @@ object Logger {
         return sanitized
     }
 
-    // במקרה שצריך לרשום מידע רגיש במפורש (רק למקרים קריטיים)
-    fun logSensitive(tag: String, message: String) {
-        if (BuildConfig.DEBUG) {
-            Log.d("$TAG_PREFIX$tag [SENSITIVE]", message)
+    private fun truncateAndSanitize(message: String): String {
+        // קיצור הודעות ארוכות
+        val truncated = if (message.length > MAX_LOG_LENGTH) {
+            message.substring(0, MAX_LOG_LENGTH) + "... [truncated]"
+        } else {
+            message
         }
+
+        return sanitizeMessage(truncated)
     }
 }
