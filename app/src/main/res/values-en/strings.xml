@@ -9,4 +9,59 @@
     <string name="review_privacy">Read Privacy Policy</string>
     <string name="review_terms">Read Terms of Service</string>
     <string name="language_switch">Switch Language</string>
+
+    <string name="app_name">Ad Skipper</string>
+    <string name="accessibility_service_label">AdSkipper - Automatic Skipping</string>
+    <string name="accessibility_service_description">Service for automatic ad skipping</string>
+
+    <!-- Service Status -->
+    <string name="service_running">On</string>
+    <string name="service_stopped">Off</string>
+    <string name="scanning_active">Scanning Active</string>
+    <string name="scanning_paused">Scanning Paused</string>
+
+    <!-- Actions -->
+    <string name="start_service">Start Service</string>
+    <string name="stop_service">Stop Service</string>
+    <string name="skip_ad_action">Skip Ad</string>
+    <string name="auto_scroll">Auto Scroll</string>
+    <string name="manual_scroll">Manual Scroll</string>
+
+    <!-- Status Messages -->
+    <string name="ad_detected">Ad Detected</string>
+    <string name="text_recognition_success">Text Recognition Successful</string>
+
+    <!-- Settings -->
+    <string name="detection_sensitivity">Detection Sensitivity</string>
+    <string name="scanning_interval">Scanning Interval</string>
+    <string name="target_apps">Target Apps</string>
+    <string name="target_text">Text to Detect</string>
+
+    <!-- Permissions -->
+    <string name="permissions_required">Additional Permissions Required</string>
+    <string name="overlay_permission_required">Overlay Permission Required</string>
+    <string name="accessibility_permission_required">Accessibility Permission Required</string>
+    <string name="accessibility_enabled">Accessibility Service Enabled</string>
+    <string name="accessibility_disabled">Accessibility Service Disabled</string>
+
+    <!-- Errors -->
+    <string name="error_generic">Error: %1$s</string>
+    <string name="settings_open_error">Cannot open accessibility settings</string>
+    <string name="critical_error_title">Critical Error</string>
+    <string name="critical_error_message">A critical error occurred in the application. Try closing and reopening it.</string>
+    <string name="error_low_memory">Low memory on device. Close other applications and try again.</string>
+    <string name="error_network">Communication error. Check your internet connection and try again.</string>
+
+    <!-- Permission Rationales -->
+    <string name="permission_rationale_intro">The app requires several permissions to work properly:</string>
+    <string name="permission_rationale_foreground_service">Foreground service permission is required for the app to run in the background and detect ads</string>
+    <string name="permission_rationale_notifications">Notification permission is required to display a notification when the service is active</string>
+    <string name="overlay_permission_rationale">The app needs permission to display over other apps to skip ads in applications like social media. Without this permission, the app won\'t be able to perform the skip action.</string>
+    <string name="accessibility_permission_rationale">The app needs accessibility permission to detect and skip ads automatically. Without this permission, the automatic ad skipping feature won\'t work.</string>
+
+    <!-- Error/Success Messages -->
+    <string name="error_service_start">Error starting service</string>
+    <string name="service_started_successfully">Skip service started successfully</string>
+    <string name="error_permissions">Cannot run the application without required permissions</string>
+    <string name="battery_optimization">The app may close in the background. For the best experience, disable battery optimization for this app</string>
 </resources>

@@ -91,10 +91,7 @@ class MainActivity : ComponentActivity() {
         private val TARGET_TEXTS = setOf(
             "דלג על מודעה",
             "דלגו על המודעה",
-            "Skip Ad",
-            "Skip ad",
-            "Skip Ads",
-            "sponsored"
+            "Sponsored"
         )
     }
 
@@ -350,18 +347,25 @@ class MainActivity : ComponentActivity() {
 
     private fun requestAccessibilityPermission() {
         try {
-            // Use MaterialAlertDialogBuilder if available, or just use a simple approach
+            Log.d(TAG, "Creating accessibility permission dialog")
             val builder = AlertDialog.Builder(this)
+            Log.d(TAG, "Setting dialog title")
             builder.setTitle("Accessibility Permission Required")
-            builder.setMessage("The app needs accessibility permission to detect and skip ads automatically. Without this permission, the automatic ad skipping feature won't work.")
+            Log.d(TAG, "Setting dialog message")
+            builder.setMessage("The app needs accessibility permission to detect and skip ads automatically")
+            Log.d(TAG, "Setting positive button")
             builder.setPositiveButton("OK") { _, _ ->
+                Log.d(TAG, "Positive button clicked")
                 val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
                 startActivity(intent)
             }
+            Log.d(TAG, "Setting negative button")
             builder.setNegativeButton("Cancel", null)
+            Log.d(TAG, "Showing dialog")
             builder.show()
+            Log.d(TAG, "Dialog showed successfully")
         } catch (e: Exception) {
-            Logger.e(TAG, "Failed to open accessibility settings", e)
+            Log.e(TAG, "Failed to open accessibility settings", e)
         }
     }
 
