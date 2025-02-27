@@ -2,67 +2,67 @@
 <resources>
     <!-- App Info -->
     <string name="app_name">Ad Skipper</string>
-    <string name="accessibility_service_label">AdSkipper - דילוג אוטומטי</string>
-    <string name="accessibility_service_description">שירות לדילוג אוטומטי על פרסומות</string>
+    <string name="accessibility_service_label">AdSkipper - Automatic Skipping</string>
+    <string name="accessibility_service_description">Service for automatic ad skipping</string>
 
     <!-- Service Status -->
     <string name="service_running">On</string>
     <string name="service_stopped">Off</string>
-    <string name="scanning_active">סריקה פעילה</string>
-    <string name="scanning_paused">סריקה מושהית</string>
+    <string name="scanning_active">Scanning Active</string>
+    <string name="scanning_paused">Scanning Paused</string>
 
     <!-- Actions -->
-    <string name="start_service">הפעל שירות</string>
-    <string name="stop_service">עצור שירות</string>
-    <string name="skip_ad_action">דילוג על פרסומת</string>
-    <string name="auto_scroll">גלילה אוטומטית</string>
-    <string name="manual_scroll">גלילה ידנית</string>
+    <string name="start_service">Start Service</string>
+    <string name="stop_service">Stop Service</string>
+    <string name="skip_ad_action">Skip Ad</string>
+    <string name="auto_scroll">Auto Scroll</string>
+    <string name="manual_scroll">Manual Scroll</string>
 
     <!-- Status Messages -->
-    <string name="ad_detected">זוהתה פרסומת</string>
-    <string name="text_recognition_success">הטקסט זוהה בהצלחה</string>
+    <string name="ad_detected">Ad Detected</string>
+    <string name="text_recognition_success">Text Recognition Successful</string>
 
     <!-- Settings -->
-    <string name="detection_sensitivity">רגישות זיהוי</string>
-    <string name="scanning_interval">מרווח סריקה</string>
-    <string name="target_apps">אפליקציות מטרה</string>
-    <string name="target_text">טקסט לזיהוי</string>
+    <string name="detection_sensitivity">Detection Sensitivity</string>
+    <string name="scanning_interval">Scanning Interval</string>
+    <string name="target_apps">Target Apps</string>
+    <string name="target_text">Text to Detect</string>
 
     <!-- Permissions -->
-    <string name="permissions_required">נדרשות הרשאות נוספות</string>
-    <string name="overlay_permission_required">נדרשת הרשאת שכבה-עליונה</string>
-    <string name="accessibility_enabled">שירות הנגישות מופעל</string>
-    <string name="accessibility_disabled">שירות הנגישות כבוי</string>
+    <string name="permissions_required">Additional Permissions Required</string>
+    <string name="overlay_permission_required">Overlay Permission Required</string>
+    <string name="accessibility_permission_required">Accessibility Permission Required</string>
+    <string name="accessibility_enabled">Accessibility Service Enabled</string>
+    <string name="accessibility_disabled">Accessibility Service Disabled</string>
 
     <!-- Errors -->
-    <string name="error_generic">שגיאה: %1$s</string>
-    <string name="settings_open_error">לא ניתן לפתוח הגדרות נגישות</string>
-    <string name="critical_error_title">שגיאה קריטית</string>
-    <string name="critical_error_message">אירעה שגיאה קריטית באפליקציה. נסה לסגור ולפתוח אותה מחדש.</string>
-    <string name="error_low_memory">זיכרון נמוך במכשיר. סגור אפליקציות אחרות ונסה שוב.</string>
-    <string name="error_network">שגיאת תקשורת. בדוק את חיבור האינטרנט ונסה שוב.</string>
+    <string name="error_generic">Error: %1$s</string>
+    <string name="settings_open_error">Cannot open accessibility settings</string>
+    <string name="critical_error_title">Critical Error</string>
+    <string name="critical_error_message">A critical error occurred in the application. Try closing and reopening it.</string>
+    <string name="error_low_memory">Low memory on device. Close other applications and try again.</string>
+    <string name="error_network">Communication error. Check your internet connection and try again.</string>
 
-    <!-- הסברי הרשאות -->
-    <string name="permission_rationale_intro">האפליקציה צריכה מספר הרשאות כדי לפעול כהלכה:</string>
-    <string name="permission_rationale_foreground_service">הרשאת שירות קדמי נדרשת כדי שהאפליקציה תוכל לפעול ברקע ולזהות פרסומות</string>
-    <string name="permission_rationale_notifications">הרשאת התראות נדרשת כדי להציג התראה כשהשירות פעיל</string>
-    <string name="overlay_permission_rationale">כדי לדלג על פרסומות, האפליקציה צריכה הרשאה להציג תוכן מעל אפליקציות אחרות</string>
-    <string name="accessibility_permission_required">נדרשת הרשאת נגישות</string>
-    <string name="accessibility_permission_rationale">כדי לזהות ולדלג על פרסומות, האפליקציה צריכה גישה לשירותי נגישות. אנא הפעל את שירות AdSkipper בהגדרות הנגישות.</string>
+    <!-- Permission Rationales -->
+    <string name="permission_rationale_intro">The app requires several permissions to work properly:</string>
+    <string name="permission_rationale_foreground_service">Foreground service permission is required for the app to run in the background and detect ads</string>
+    <string name="permission_rationale_notifications">Notification permission is required to display a notification when the service is active</string>
+    <string name="overlay_permission_rationale">The app needs permission to display over other apps to skip ads in applications like social media. Without this permission, the app won\'t be able to perform the skip action.</string>
+    <string name="accessibility_permission_rationale">The app needs accessibility permission to detect and skip ads automatically. Without this permission, the automatic ad skipping feature won\'t work.</string>
 
-    <!-- הודעות שגיאה/הצלחה -->
-    <string name="error_service_start">שגיאה בהפעלת השירות</string>
-    <string name="service_started_successfully">שירות הדילוג הופעל</string>
-    <string name="error_permissions">לא ניתן להפעיל את האפליקציה ללא ההרשאות הנדרשות</string>
-    <string name="battery_optimization">האפליקציה עשויה להיסגר ברקע. לחוויה מיטבית, בטל את אופטימיזציית הסוללה עבור אפליקציה זו</string>
+    <!-- Error/Success Messages -->
+    <string name="error_service_start">Error starting service</string>
+    <string name="service_started_successfully">Skip service started successfully</string>
+    <string name="error_permissions">Cannot run the application without required permissions</string>
+    <string name="battery_optimization">The app may close in the background. For the best experience, disable battery optimization for this app</string>
 
     <!-- Legal -->
-    <string name="privacy_policy">מדיניות פרטיות</string>
-    <string name="terms_of_service">תנאי שימוש</string>
-    <string name="legal_agreement_message">כדי להשתמש באפליקציה, עליך להסכים לתנאי השימוש ולמדיניות הפרטיות שלנו.</string>
-    <string name="i_agree">אני מסכים</string>
-    <string name="review_privacy">קרא מדיניות פרטיות</string>
-    <string name="review_terms">קרא תנאי שימוש</string>
-    <string name="language_switch">החלף שפה</string>
-    <string name="legal_agreement_title">הסכם משתמש</string>
+    <string name="privacy_policy">Privacy Policy</string>
+    <string name="terms_of_service">Terms of Service</string>
+    <string name="legal_agreement_message">To use the app, you must agree to our Terms of Service and Privacy Policy.</string>
+    <string name="i_agree">I Agree</string>
+    <string name="review_privacy">Read Privacy Policy</string>
+    <string name="review_terms">Read Terms of Service</string>
+    <string name="language_switch">Switch Language</string>
+    <string name="legal_agreement_title">User Agreement</string>
 </resources>

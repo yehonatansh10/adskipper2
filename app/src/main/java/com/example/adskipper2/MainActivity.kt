@@ -49,6 +49,9 @@ import androidx.compose.runtime.setValue
 import com.example.adskipper2.ui.compose.LegalAgreementDialog
 import com.example.adskipper2.ui.compose.LegalDocumentType
 import com.example.adskipper2.ui.compose.LegalScreen
+import androidx.appcompat.app.AlertDialog
+import com.example.adskipper2.R
+import android.widget.TextView
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -63,7 +66,6 @@ class MainActivity : ComponentActivity() {
     private var showLegalAgreementDialog by mutableStateOf(false)
     private var showPrivacyPolicy by mutableStateOf(false)
     private var showTermsOfService by mutableStateOf(false)
-    private var showStatsScreen by mutableStateOf(false)
     private val handler = Handler(Looper.getMainLooper())
     private var lastDetectionTime = 0L
     private val detectionInterval = 1000L
@@ -126,19 +128,10 @@ class MainActivity : ComponentActivity() {
             setupUI()
             setupTouchListener()
 
-            // בדיקת הרשאות בהפעלה
-            if (!Settings.canDrawOverlays(this)) {
-                requestOverlayPermission()
-            }
-
-            if (!isAccessibilityServiceEnabled()) {
-                requestAccessibilityPermission()
-            }
-
             checkServiceStatus()
         } catch (e: Exception) {
             Logger.e(TAG, "Error in onCreate: ${e.message}", e)
-            Toast.makeText(this, "שגיאה באתחול האפליקציה", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error initializing the application", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -255,7 +248,6 @@ class MainActivity : ComponentActivity() {
                             onStopService = { stopSkipperService() },
                             onStartRecording = { startRecording() },
                             onStopRecording = { stopRecording() },
-                            onOpenStats = { showStatsScreen = true }, // הוסף את השורה הזאת
                             onOpenPrivacyPolicy = {
                                 currentLegalDocument = LegalDocumentType.getPrivacyPolicy(isHebrew)
                                 showLegalScreen = true
@@ -309,7 +301,19 @@ class MainActivity : ComponentActivity() {
 
         if (!Settings.canDrawOverlays(this) || !isAccessibilityServiceEnabled()) {
             Logger.d(TAG, "Missing permissions, requesting...")
-            checkAllPermissions()
+
+            // First check for overlay permission
+            if (!Settings.canDrawOverlays(this)) {
+                requestOverlayPermission()
+                return
+            }
+
+            // Then check for accessibility permission
+            if (!isAccessibilityServiceEnabled()) {
+                requestAccessibilityPermission()
+                return
+            }
+
             return
         }
 
@@ -346,21 +350,18 @@ class MainActivity : ComponentActivity() {
 
     private fun requestAccessibilityPermission() {
         try {
-            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            startActivity(intent)
-            Toast.makeText(
-                this,
-                "אנא הפעל את שירות הנגישות של AdSkipper",
-                Toast.LENGTH_LONG
-            ).show()
+            // Use MaterialAlertDialogBuilder if available, or just use a simple approach
+            val builder = AlertDialog.Builder(this)
+            builder.setTitle("Accessibility Permission Required")
+            builder.setMessage("The app needs accessibility permission to detect and skip ads automatically. Without this permission, the automatic ad skipping feature won't work.")
+            builder.setPositiveButton("OK") { _, _ ->
+                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+                startActivity(intent)
+            }
+            builder.setNegativeButton("Cancel", null)
+            builder.show()
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to open accessibility settings", e)
-            Toast.makeText(
-                this,
-                "שגיאה בפתיחת הגדרות נגישות",
-                Toast.LENGTH_LONG
-            ).show()
         }
     }
 
@@ -368,7 +369,7 @@ class MainActivity : ComponentActivity() {
         try {
             stopService(Intent(this, UnifiedSkipperService::class.java))
             isServiceRunning.value = false
-            Toast.makeText(this, "שירות הדילוג הופסק", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Skip service has been discontinued.", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Logger.e(TAG, "Error stopping service: ${e.message}", e)
         }
@@ -398,19 +399,27 @@ class MainActivity : ComponentActivity() {
 
     private fun requestOverlayPermission() {
         try {
-            val intent = Intent(
-                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                Uri.parse("package:$packageName")
-            )
-            startActivity(intent)
-            Toast.makeText(
-                this,
-                "אנא אשר הרשאת תצוגה מעל אפליקציות אחרות וחזור לאפליקציה",
-                Toast.LENGTH_LONG
-            ).show()
+            // שים לב כאן - אנחנו מגדירים טקסט קשיח (hardcoded) במקום להשתמש במשאבי מחרוזות
+            AlertDialog.Builder(this)
+                .setTitle("Overlay Permission Required")
+                .setMessage("The app needs permission to display over other apps to skip ads in applications like social media. Without this permission, the app won't be able to perform the skip action.")
+                .setPositiveButton("OK") { _, _ ->
+                    val intent = Intent(
+                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                        Uri.parse("package:$packageName")
+                    )
+                    startActivity(intent)
+                    Toast.makeText(
+                        this,
+                        "Please allow display over other apps and return to the app",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to open overlay settings", e)
-            Toast.makeText(this, "שגיאה בפתיחת הגדרות תצוגה", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Error opening display settings", Toast.LENGTH_LONG).show()
         }
     }
 

@@ -45,7 +45,6 @@ fun AdSkipperApp(
     onStopService: () -> Unit,
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
-    onOpenStats: () -> Unit,
     onOpenPrivacyPolicy: () -> Unit,
     onOpenTermsOfService: () -> Unit
 ) {
@@ -103,21 +102,7 @@ fun AdSkipperApp(
 
             Spacer(modifier = Modifier.height(32.dp))
 
-            // כפתור סטטיסטיקות - חדש
-            Button(
-                onClick = onOpenStats,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF333333)
-                ),
-                modifier = Modifier.padding(top = 16.dp)
-            ) {
-                Icon(
-                    imageVector = Icons.Default.Analytics,
-                    contentDescription = "Statistics",
-                    modifier = Modifier.padding(end = 8.dp)
-                )
-                Text("Statistics")
-            }
+            // Statistics button removed
         }
     }
 
