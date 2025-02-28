@@ -347,25 +347,18 @@ class MainActivity : ComponentActivity() {
 
     private fun requestAccessibilityPermission() {
         try {
-            Log.d(TAG, "Creating accessibility permission dialog")
-            val builder = AlertDialog.Builder(this)
-            Log.d(TAG, "Setting dialog title")
-            builder.setTitle("Accessibility Permission Required")
-            Log.d(TAG, "Setting dialog message")
-            builder.setMessage("The app needs accessibility permission to detect and skip ads automatically")
-            Log.d(TAG, "Setting positive button")
-            builder.setPositiveButton("OK") { _, _ ->
-                Log.d(TAG, "Positive button clicked")
-                val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
-                startActivity(intent)
-            }
-            Log.d(TAG, "Setting negative button")
-            builder.setNegativeButton("Cancel", null)
-            Log.d(TAG, "Showing dialog")
-            builder.show()
-            Log.d(TAG, "Dialog showed successfully")
+            // מעבר ישיר להגדרות הנגישות ללא הצגת דיאלוג
+            val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            startActivity(intent)
+            Toast.makeText(
+                this,
+                getString(R.string.accessibility_permission_rationale),
+                Toast.LENGTH_LONG
+            ).show()
         } catch (e: Exception) {
-            Log.e(TAG, "Failed to open accessibility settings", e)
+            Logger.e(TAG, "Failed to open accessibility settings", e)
+            Toast.makeText(this, R.string.settings_open_error, Toast.LENGTH_LONG).show()
         }
     }
 
@@ -403,24 +396,19 @@ class MainActivity : ComponentActivity() {
 
     private fun requestOverlayPermission() {
         try {
-            // שים לב כאן - אנחנו מגדירים טקסט קשיח (hardcoded) במקום להשתמש במשאבי מחרוזות
-            AlertDialog.Builder(this)
-                .setTitle("Overlay Permission Required")
-                .setMessage("The app needs permission to display over other apps to skip ads in applications like social media. Without this permission, the app won't be able to perform the skip action.")
-                .setPositiveButton("OK") { _, _ ->
-                    val intent = Intent(
-                        Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
-                        Uri.parse("package:$packageName")
-                    )
-                    startActivity(intent)
-                    Toast.makeText(
-                        this,
-                        "Please allow display over other apps and return to the app",
-                        Toast.LENGTH_LONG
-                    ).show()
-                }
-                .setNegativeButton("Cancel", null)
-                .show()
+            // מעבר ישיר להגדרות הרשאת מוצג מעל פריטים אחרים ללא הצגת דיאלוג
+            val intent = Intent(
+                Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                Uri.parse("package:$packageName")
+            )
+            startActivity(intent)
+
+            // הצגת הודעה קצרה למשתמש
+            Toast.makeText(
+                this,
+                getString(R.string.overlay_permission_rationale),
+                Toast.LENGTH_LONG
+            ).show()
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to open overlay settings", e)
             Toast.makeText(this, "Error opening display settings", Toast.LENGTH_LONG).show()
