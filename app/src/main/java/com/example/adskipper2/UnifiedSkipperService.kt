@@ -11,10 +11,14 @@ import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import com.example.adskipper2.util.ErrorHandler
 import com.example.adskipper2.analytics.AnalyticsManager
+import com.example.adskipper2.service.ServiceState
 
 class UnifiedSkipperService : AccessibilityService() {
     private lateinit var errorHandler: ErrorHandler
     private lateinit var analyticsManager: AnalyticsManager
+    private var isServiceActive = true
+
+
     companion object {
         private const val TAG = "UnifiedSkipperService"
         private const val ACTION_COOLDOWN = 2000L
@@ -132,6 +136,10 @@ class UnifiedSkipperService : AccessibilityService() {
     }
 
     override fun onAccessibilityEvent(event: AccessibilityEvent) {
+        if (!ServiceState.getInstance(this).isEnabled()) {
+            return  // אם השירות מושבת, צא מהמתודה מיד
+        }
+
         // בדיקה שלא מדובר באפליקציה רגישה
         val packageName = event.packageName?.toString()
 
@@ -410,6 +418,10 @@ class UnifiedSkipperService : AccessibilityService() {
 
     override fun onDestroy() {
         super.onDestroy()
+        isServiceActive = false
+        isPerformingAction = false
+        isScrolling = false
         handler.removeCallbacksAndMessages(null)
+        logDebug("Service destroyed")
     }
 }

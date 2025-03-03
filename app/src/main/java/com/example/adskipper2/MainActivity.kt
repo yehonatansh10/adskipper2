@@ -52,6 +52,8 @@ import com.example.adskipper2.ui.compose.LegalScreen
 import androidx.appcompat.app.AlertDialog
 import com.example.adskipper2.R
 import android.widget.TextView
+import com.example.adskipper2.service.ServiceState
+import com.example.adskipper2.service.ServiceManager
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -61,6 +63,7 @@ class MainActivity : ComponentActivity() {
     private lateinit var gesturePlayer: GesturePlayer
     private lateinit var errorHandler: ErrorHandler
     private lateinit var analyticsManager: AnalyticsManager
+    private lateinit var serviceManager: ServiceManager
     private var showLegalScreen by mutableStateOf(false)
     private var currentLegalDocument by mutableStateOf(LegalDocumentType.PRIVACY_POLICY_HEBREW)
     private var showLegalAgreementDialog by mutableStateOf(false)
@@ -125,7 +128,9 @@ class MainActivity : ComponentActivity() {
             setupUI()
             setupTouchListener()
 
+            // בדיקה וטעינה של מצב השירות
             checkServiceStatus()
+
         } catch (e: Exception) {
             Logger.e(TAG, "Error in onCreate: ${e.message}", e)
             Toast.makeText(this, "Error initializing the application", Toast.LENGTH_LONG).show()
@@ -160,6 +165,7 @@ class MainActivity : ComponentActivity() {
             prefs = getSharedPreferences("targets", MODE_PRIVATE)
             gestureRecorder = GestureRecorder()
             gesturePlayer = GesturePlayer(this)
+            serviceManager = ServiceManager.getInstance(this)
             loadInstalledApps()
             initializePrefs()
         } catch (e: Exception) {
@@ -315,14 +321,16 @@ class MainActivity : ComponentActivity() {
         }
 
         try {
-            val serviceIntent = Intent(this, UnifiedSkipperService::class.java)
+            // הפעל את השירות רק אם צריך
             if (!isServiceRunning(UnifiedSkipperService::class.java)) {
+                val serviceIntent = Intent(this, UnifiedSkipperService::class.java)
                 startService(serviceIntent)
-                Logger.d(TAG, "Service started")
-            } else {
-                Logger.d(TAG, "Service already running")
             }
+
+            // הגדר את מצב השירות כמאופשר
+            ServiceState.getInstance(this).setEnabled(true)
             isServiceRunning.value = true
+
             saveServicePreferences()
         } catch (e: Exception) {
             errorHandler.handleError(TAG, e)
@@ -364,8 +372,10 @@ class MainActivity : ComponentActivity() {
 
     private fun stopSkipperService() {
         try {
-            stopService(Intent(this, UnifiedSkipperService::class.java))
+            // הגדר את מצב השירות כמושבת
+            ServiceState.getInstance(this).setEnabled(false)
             isServiceRunning.value = false
+
             Toast.makeText(this, "Skip service has been discontinued.", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             Logger.e(TAG, "Error stopping service: ${e.message}", e)
@@ -376,7 +386,9 @@ class MainActivity : ComponentActivity() {
         val enabled = isAccessibilityServiceEnabled()
         Logger.d(TAG, "Accessibility service enabled: $enabled")
         if (enabled) {
-            isServiceRunning.value = isServiceRunning(UnifiedSkipperService::class.java)
+            isServiceRunning.value = ServiceState.getInstance(this).isEnabled()
+        } else {
+            isServiceRunning.value = false
         }
     }
 
