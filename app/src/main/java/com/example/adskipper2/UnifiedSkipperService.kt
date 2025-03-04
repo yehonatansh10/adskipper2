@@ -17,6 +17,8 @@ class UnifiedSkipperService : AccessibilityService() {
     private lateinit var errorHandler: ErrorHandler
     private lateinit var analyticsManager: AnalyticsManager
     private var isServiceActive = true
+    private var isActiveScanning = true // האם מבצעים סריקה מלאה
+    private var currentForegroundPackage: String? = null
 
 
     companion object {
@@ -129,9 +131,27 @@ class UnifiedSkipperService : AccessibilityService() {
             analyticsManager = AnalyticsManager.getInstance(this)
             displayWidth = resources.displayMetrics.widthPixels
             displayHeight = resources.displayMetrics.heightPixels
+
+            // בדוק אם אפליקציה נוכחית היא אפליקציית מטרה
+            val currentPackage = getCurrentForegroundPackage()
+            isActiveScanning = currentPackage != null && supportedApps.containsKey(currentPackage)
+
             logDebug("Service connected with dimensions: $displayWidth x $displayHeight")
+            logDebug("Initial scanning state: ${if (isActiveScanning) "ACTIVE" else "SLEEP"}")
         } catch (e: Exception) {
             logError("Error in onServiceConnected", e)
+        }
+    }
+
+    // הוסף מתודה חדשה זו אחרי onServiceConnected
+    private fun getCurrentForegroundPackage(): String? {
+        try {
+            // קבלת חלון שירות הנגישות הנוכחי
+            val rootNode = rootInActiveWindow
+            return rootNode?.packageName?.toString()
+        } catch (e: Exception) {
+            logError("Error getting current package", e)
+            return null
         }
     }
 
@@ -140,18 +160,41 @@ class UnifiedSkipperService : AccessibilityService() {
             return  // אם השירות מושבת, צא מהמתודה מיד
         }
 
-        // בדיקה שלא מדובר באפליקציה רגישה
-        val packageName = event.packageName?.toString()
+        // בדיקת שינוי חלון כדי לזהות מעבר בין אפליקציות
+        if (event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED) {
+            val packageName = event.packageName?.toString()
 
-        // שימוש בשימת רשימה לבנה - נעבד רק אפליקציות שמוגדרות מראש
-        if (packageName != null && supportedApps.containsKey(packageName)) {
-            currentAppConfig = supportedApps[packageName]
-            if (currentAppConfig != null && !isPerformingAction) {
-                when (event.eventType) {
-                    AccessibilityEvent.TYPE_VIEW_SCROLLED,
-                    AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
-                    AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
-                        checkContent()
+            if (packageName != currentForegroundPackage) {
+                currentForegroundPackage = packageName
+
+                // בדיקה אם האפליקציה הנוכחית היא אחת מאפליקציות היעד
+                val isTargetApp = packageName != null && supportedApps.containsKey(packageName)
+
+                if (isTargetApp && !isActiveScanning) {
+                    // התעוררות - אפליקציית מטרה נפתחה
+                    activateFullService()
+                } else if (!isTargetApp && isActiveScanning) {
+                    // כניסה למצב שינה - עזבנו את אפליקציית המטרה
+                    enterSleepMode()
+                }
+            }
+        }
+
+        // המשך הלוגיקה הקיימת רק אם במצב סריקה פעיל
+        if (isActiveScanning) {
+            // בדיקה שלא מדובר באפליקציה רגישה
+            val packageName = event.packageName?.toString()
+
+            // שימוש בשימת רשימה לבנה - נעבד רק אפליקציות שמוגדרות מראש
+            if (packageName != null && supportedApps.containsKey(packageName)) {
+                currentAppConfig = supportedApps[packageName]
+                if (currentAppConfig != null && !isPerformingAction) {
+                    when (event.eventType) {
+                        AccessibilityEvent.TYPE_VIEW_SCROLLED,
+                        AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
+                        AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED -> {
+                            checkContent()
+                        }
                     }
                 }
             }
@@ -423,5 +466,29 @@ class UnifiedSkipperService : AccessibilityService() {
         isScrolling = false
         handler.removeCallbacksAndMessages(null)
         logDebug("Service destroyed")
+    }
+
+    private fun activateFullService() {
+        if (!isActiveScanning) {
+            isActiveScanning = true
+            // רישום ליומן
+            logDebug("Activating full scanning for package: $currentForegroundPackage")
+
+            // כאן אפשר להפעיל מחדש מנגנונים נוספים אם נדרש
+        }
+    }
+
+    private fun enterSleepMode() {
+        if (isActiveScanning) {
+            isActiveScanning = false
+            // רישום ליומן
+            logDebug("Entering sleep mode, current package: $currentForegroundPackage")
+
+            // ניקוי משאבים כדי לחסוך סוללה
+            isPerformingAction = false
+            isScrolling = false
+            lastScrollEvents.clear()
+            handler.removeCallbacksAndMessages(null)
+        }
     }
 }
