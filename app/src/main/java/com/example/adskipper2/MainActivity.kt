@@ -1,7 +1,6 @@
 package com.example.adskipper2
 
 import android.Manifest
-import androidx.compose.ui.graphics.Color
 import android.app.ActivityManager
 import android.content.Intent
 import android.content.SharedPreferences
@@ -22,38 +21,29 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.ui.graphics.Color
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
+import com.example.adskipper2.config.KeywordManager
 import com.example.adskipper2.gesture.GestureAction
 import com.example.adskipper2.gesture.GesturePlayer
 import com.example.adskipper2.gesture.GestureRecorder
+import com.example.adskipper2.service.ServiceManager
+import com.example.adskipper2.service.ServiceState
 import com.example.adskipper2.ui.compose.AdSkipperApp
+import com.example.adskipper2.ui.compose.LegalAgreementDialog
+import com.example.adskipper2.ui.compose.LegalDocumentType
+import com.example.adskipper2.ui.compose.LegalScreen
+import com.example.adskipper2.util.ErrorHandler
+import com.example.adskipper2.util.InputValidator
+import com.example.adskipper2.util.Logger
+import com.example.adskipper2.analytics.AnalyticsManager
 import com.google.mlkit.vision.common.InputImage
 import com.google.mlkit.vision.text.TextRecognition
 import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
-import com.example.adskipper2.util.Logger
-import com.example.adskipper2.util.InputValidator
-import com.example.adskipper2.util.ErrorHandler
-import com.example.adskipper2.analytics.AnalyticsManager
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import com.example.adskipper2.ui.compose.StatsScreen
-import com.example.adskipper2.ui.compose.LegalScreen
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
-import com.example.adskipper2.ui.compose.LegalAgreementDialog
-import com.example.adskipper2.ui.compose.LegalDocumentType
-import com.example.adskipper2.ui.compose.LegalScreen
-import androidx.appcompat.app.AlertDialog
-import com.example.adskipper2.R
-import android.widget.TextView
-import com.example.adskipper2.service.ServiceState
-import com.example.adskipper2.service.ServiceManager
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -64,11 +54,12 @@ class MainActivity : ComponentActivity() {
     private lateinit var errorHandler: ErrorHandler
     private lateinit var analyticsManager: AnalyticsManager
     private lateinit var serviceManager: ServiceManager
-    private var showLegalScreen by mutableStateOf(false)
-    private var currentLegalDocument by mutableStateOf(LegalDocumentType.PRIVACY_POLICY_HEBREW)
-    private var showLegalAgreementDialog by mutableStateOf(false)
-    private var showPrivacyPolicy by mutableStateOf(false)
-    private var showTermsOfService by mutableStateOf(false)
+    private lateinit var keywordManager: KeywordManager
+
+    private var showLegalScreen = mutableStateOf(false)
+    private var currentLegalDocument = mutableStateOf(LegalDocumentType.PRIVACY_POLICY_HEBREW)
+    private var showLegalAgreementDialog = mutableStateOf(false)
+
     private val handler = Handler(Looper.getMainLooper())
     private var lastDetectionTime = 0L
     private val detectionInterval = 1000L
@@ -143,7 +134,7 @@ class MainActivity : ComponentActivity() {
         val hasAgreed = prefs.getBoolean("has_agreed_to_terms", false)
 
         if (!hasAgreed) {
-            showLegalAgreementDialog = true
+            showLegalAgreementDialog.value = true
         }
     }
 
@@ -154,7 +145,7 @@ class MainActivity : ComponentActivity() {
             .putBoolean("has_agreed_to_terms", true)
             .apply()
 
-        showLegalAgreementDialog = false
+        showLegalAgreementDialog.value = false
     }
 
     private fun initializeComponents() {
@@ -162,53 +153,47 @@ class MainActivity : ComponentActivity() {
             Logger.d(TAG, "Initializing components")
             errorHandler = ErrorHandler.getInstance(this)
             analyticsManager = AnalyticsManager.getInstance(this)
+            keywordManager = KeywordManager.getInstance(this)
             prefs = getSharedPreferences("targets", MODE_PRIVATE)
             gestureRecorder = GestureRecorder()
             gesturePlayer = GesturePlayer(this)
             serviceManager = ServiceManager.getInstance(this)
+
             loadInstalledApps()
-            initializePrefs()
+            loadSavedPreferences()
         } catch (e: Exception) {
             Logger.e(TAG, "Error in initializeComponents", e)
             errorHandler.handleError(TAG, e)
         }
     }
 
-    private fun initializePrefs() {
-        Logger.d(TAG, "Initializing preferences")
-        if (!prefs.contains("selected_apps")) {
-            prefs.edit().apply {
-                putStringSet("selected_apps", setOf("com.zhiliaoapp.musically", "com.ss.android.ugc.trill"))
-                // הוספת מילת ברירת מחדל
-                putString("com.zhiliaoapp.musically_target_sponsored", "sponsored")
-                putString("com.ss.android.ugc.trill_target_sponsored", "sponsored")
-                apply()
-            }
-        }
-        loadSavedPreferences()
-        loadSavedTargetWords()
-    }
-
     private fun loadSavedPreferences() {
-        val savedApps = prefs.getStringSet("selected_apps", setOf()) ?: setOf()
-        val savedAppInfos = savedApps.mapNotNull { packageName ->
-            try {
-                val appInfo = packageManager.getApplicationInfo(packageName, 0)
-                AppInfo(
-                    name = packageManager.getApplicationLabel(appInfo).toString(),
-                    packageName = packageName
-                )
-            } catch (e: Exception) {
-                Logger.e(TAG, "Error loading app info for $packageName", e)
-                null
-            }
-        }.toSet()
-        selectedApps.value = savedAppInfos
+        try {
+            // קבלת הגדרות מה-KeywordManager
+            val appConfigs = keywordManager.getAppConfigMap()
 
-        val savedContent = savedApps.flatMap { packageName ->
-            prefs.getString("${packageName}_text", null)?.let { setOf(it) } ?: setOf()
-        }.toSet()
-        selectedContent.value = savedContent
+            // המרה לרשימת אפליקציות
+            val appInfos = appConfigs.keys.mapNotNull { packageName ->
+                try {
+                    val appInfo = packageManager.getApplicationInfo(packageName, 0)
+                    AppInfo(
+                        name = packageManager.getApplicationLabel(appInfo).toString(),
+                        packageName = packageName
+                    )
+                } catch (e: Exception) {
+                    Logger.e(TAG, "Error loading app info for $packageName", e)
+                    null
+                }
+            }.toSet()
+
+            selectedApps.value = appInfos
+
+            // קבלת כל מילות המפתח
+            selectedContent.value = keywordManager.getAllKeywords()
+
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error loading saved preferences", e)
+        }
     }
 
     private fun setupUI() {
@@ -227,10 +212,10 @@ class MainActivity : ComponentActivity() {
                 )
             ) {
                 when {
-                    showLegalScreen -> {
+                    showLegalScreen.value -> {
                         LegalScreen(
-                            initialDocumentType = currentLegalDocument,
-                            onBackClick = { showLegalScreen = false }
+                            initialDocumentType = currentLegalDocument.value,
+                            onBackClick = { showLegalScreen.value = false }
                         )
                     }
                     else -> {
@@ -252,30 +237,30 @@ class MainActivity : ComponentActivity() {
                             onStartRecording = { startRecording() },
                             onStopRecording = { stopRecording() },
                             onOpenPrivacyPolicy = {
-                                currentLegalDocument = LegalDocumentType.getPrivacyPolicy(isHebrew)
-                                showLegalScreen = true
+                                currentLegalDocument.value = LegalDocumentType.getPrivacyPolicy(isHebrew)
+                                showLegalScreen.value = true
                             },
                             onOpenTermsOfService = {
-                                currentLegalDocument = LegalDocumentType.getTermsOfService(isHebrew)
-                                showLegalScreen = true
+                                currentLegalDocument.value = LegalDocumentType.getTermsOfService(isHebrew)
+                                showLegalScreen.value = true
                             }
                         )
 
                         // הצגת דיאלוג הסכמה אם נדרש
-                        if (showLegalAgreementDialog) {
+                        if (showLegalAgreementDialog.value) {
                             LegalAgreementDialog(
                                 isHebrew = isHebrew,
                                 onDismiss = { finish() }, // סגירת האפליקציה אם המשתמש לא מסכים
                                 onAgree = { saveLegalAgreement() },
                                 onViewPrivacyPolicy = {
-                                    currentLegalDocument = LegalDocumentType.getPrivacyPolicy(isHebrew)
-                                    showLegalScreen = true
-                                    showLegalAgreementDialog = false // להסתיר זמנית את הדיאלוג
+                                    currentLegalDocument.value = LegalDocumentType.getPrivacyPolicy(isHebrew)
+                                    showLegalScreen.value = true
+                                    showLegalAgreementDialog.value = false // להסתיר זמנית את הדיאלוג
                                 },
                                 onViewTermsOfService = {
-                                    currentLegalDocument = LegalDocumentType.getTermsOfService(isHebrew)
-                                    showLegalScreen = true
-                                    showLegalAgreementDialog = false // להסתיר זמנית את הדיאלוג
+                                    currentLegalDocument.value = LegalDocumentType.getTermsOfService(isHebrew)
+                                    showLegalScreen.value = true
+                                    showLegalAgreementDialog.value = false // להסתיר זמנית את הדיאלוג
                                 }
                             )
                         }
@@ -331,7 +316,7 @@ class MainActivity : ComponentActivity() {
             ServiceState.getInstance(this).setEnabled(true)
             isServiceRunning.value = true
 
-            saveServicePreferences()
+            Toast.makeText(this, "Skip service started successfully", Toast.LENGTH_SHORT).show()
         } catch (e: Exception) {
             errorHandler.handleError(TAG, e)
         }
@@ -435,8 +420,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 
-    // עדכון במחלקת MainActivity.kt
-
     private fun saveSelectedImage(uri: Uri) {
         Logger.d(TAG, "Saving selected image: $uri")
 
@@ -475,16 +458,6 @@ class MainActivity : ComponentActivity() {
             Logger.e(TAG, "Error saving image: ${e.message}", e)
             Toast.makeText(this, "שגיאה בשמירת התמונה", Toast.LENGTH_SHORT).show()
         }
-    }
-
-    private fun loadSavedTargetWords() {
-        val words = mutableSetOf<String>()
-        selectedApps.value.forEach { app ->
-            prefs.all.entries
-                .filter { it.key.startsWith("${app.packageName}_target_") }
-                .mapNotNullTo(words) { it.value as? String }
-        }
-        selectedContent.value = words
     }
 
     private fun checkStoragePermission() =
@@ -563,20 +536,6 @@ class MainActivity : ComponentActivity() {
 
     private fun isSystemApp(appInfo: ApplicationInfo) =
         appInfo.flags and (ApplicationInfo.FLAG_SYSTEM or ApplicationInfo.FLAG_UPDATED_SYSTEM_APP) != 0
-
-    private fun saveServicePreferences() {
-        Logger.d(TAG, "Saving service preferences")
-        prefs.edit().apply {
-            putStringSet("selected_apps", selectedApps.value.map { it.packageName }.toSet())
-            selectedApps.value.forEach { app ->
-                TARGET_TEXTS.forEach { text ->
-                    putString("${app.packageName}_text", text)
-                }
-            }
-            apply()
-        }
-        Logger.d(TAG, "Service preferences saved successfully")
-    }
 
     private fun startRecording() {
         Logger.d(TAG, "Starting gesture recording request")
@@ -681,39 +640,17 @@ class MainActivity : ComponentActivity() {
         }
 
         Logger.d(TAG, "Saving target text: ${Logger.sanitizeMessage(validText)}")
-        selectedContent.value = selectedContent.value + validText
 
-        // שמירת המילה עבור כל אפליקציה נבחרת
-        prefs.edit().apply {
-            selectedApps.value.forEach { app ->
-                // אימות שם החבילה לפני שימוש כמפתח
-                if (InputValidator.validatePackageName(this@MainActivity, app.packageName)) {
-                    // שמירת המילה עם מזהה ייחודי
-                    putString("${app.packageName}_target_${validText.hashCode()}", validText)
-                }
-            }
-            apply()
-        }
+        // הוספת המילה לכל האפליקציות הנתמכות
+        keywordManager.addKeywordToAllApps(validText)
+
+        // עדכון המצב המקומי
+        selectedContent.value = selectedContent.value + validText
 
         // רענון השירות רק אם הוא רץ כבר
         if (isServiceRunning.value) {
             stopSkipperService()
             startSkipperService()
         }
-    }
-
-    private fun sanitizeRecognizedText(text: String): String {
-        // סינון תווים מיוחדים שעלולים לגרום לבעיות
-        var sanitized = text.replace("\n", " ").replace("\\s+".toRegex(), " ")
-
-        // הגבלת אורך
-        if (sanitized.length > 100) {
-            sanitized = sanitized.substring(0, 100)
-        }
-
-        // הסרת תווים מסוכנים לשאילתות
-        sanitized = sanitized.replace("[<>&\\\\/]".toRegex(), "")
-
-        return sanitized
     }
 }

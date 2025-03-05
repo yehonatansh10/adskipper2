@@ -6,20 +6,22 @@ import android.graphics.Path
 import android.graphics.Rect
 import android.os.Handler
 import android.os.Looper
-import android.util.Log
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
-import com.example.adskipper2.util.ErrorHandler
 import com.example.adskipper2.analytics.AnalyticsManager
+import com.example.adskipper2.config.KeywordManager
+import com.example.adskipper2.config.ScrollConfig
 import com.example.adskipper2.service.ServiceState
+import com.example.adskipper2.util.ErrorHandler
+import com.example.adskipper2.util.Logger
 
 class UnifiedSkipperService : AccessibilityService() {
     private lateinit var errorHandler: ErrorHandler
     private lateinit var analyticsManager: AnalyticsManager
+    private lateinit var keywordManager: KeywordManager
     private var isServiceActive = true
     private var isActiveScanning = true // האם מבצעים סריקה מלאה
     private var currentForegroundPackage: String? = null
-
 
     companion object {
         private const val TAG = "UnifiedSkipperService"
@@ -30,87 +32,23 @@ class UnifiedSkipperService : AccessibilityService() {
 
     private fun logDebug(message: String) {
         if (DEBUG) {
-            Log.d(TAG, message)
+            Logger.d(TAG, message)
         }
     }
 
     private fun logError(message: String, e: Exception? = null) {
         if (DEBUG) {
             if (e != null) {
-                Log.e(TAG, message, e)
+                Logger.e(TAG, message, e)
             } else {
-                Log.e(TAG, message)
+                Logger.e(TAG, message)
             }
         }
     }
 
-    private data class AppConfig(
-        val packageName: String,
-        val adKeywords: List<String>,
-        val scrollConfig: ScrollConfig,
-        val customActions: List<String> = emptyList()
-    )
-
-    private data class ScrollConfig(
-        val startHeightRatio: Float = 0.6f,
-        val endHeightRatio: Float = 0.4f,
-        val duration: Long = 100,
-        val cooldown: Long = SCROLL_COOLDOWN
-    )
-
     private data class ScrollEvent(
         val timestamp: Long,
         val y: Int
-    )
-
-    private val supportedApps = mapOf(
-        "com.zhiliaoapp.musically" to AppConfig(
-            packageName = "com.zhiliaoapp.musically",
-            adKeywords = listOf(
-                "ממומן", "שותפות בתשלום", "החלק כדי לדלג",
-                " החלק/החליקי למעלה למעבר לפוסט הבא",
-                "לצפייה ב-stories", "תוכן פרסומי", "תוכן שיווקי",
-                "Sponsored", "View Stories",
-                "Swipe up for next post", "Swipe up to skip",
-                "Not interested", "LIVE now", "Tap to watch LIVE",
-                "Paid partnership", "Sign up",
-                "Follows you", "Follow back",
-                "Promotional content", "Submit",
-                "How do you feel about the video you just watched?",
-                "Tap an emoji to submit",
-            ),
-            scrollConfig = ScrollConfig()
-        ),
-        "com.instagram.android" to AppConfig(
-            packageName = "com.instagram.android",
-            adKeywords = listOf(
-                "מודעה", "ממומן", "מוצע", "פוסט ממומן",
-                "שותפות בתשלום", "רוצה לנסות?",
-                "הצעות בשבילך", "ממומנות",
-                "Sponsored", "Suggested",
-                "Sponsored post", "Paid partnership",
-                "Suggested threads", "Get app",
-                "Turn your moments into a reel",
-                "Learn more", "Sign up", "Chat on WhatsApp",
-                "Get offer", "Get quote",
-                "Shop now", "Install now",
-            ),
-            scrollConfig = ScrollConfig()  // השתמש בקונפיגורציית ברירת המחדל
-        ),
-        "com.facebook.katana" to AppConfig(
-            packageName = "com.facebook.katana",
-            adKeywords = listOf(
-                "Sponsored", "ממומן",
-            ),
-            scrollConfig = ScrollConfig()  // השתמש בקונפיגורציית ברירת המחדל
-        ),
-        "com.google.android.youtube" to AppConfig(
-            packageName = "com.google.android.youtube",
-            adKeywords = listOf(
-                "Sponsored", "ממומן", "Start now",
-            ),
-            scrollConfig = ScrollConfig()  // אותה קונפיגורציית גלילה בדיוק כמו בטיקטוק
-        )
     )
 
     private var isPerformingAction = false
@@ -120,7 +58,6 @@ class UnifiedSkipperService : AccessibilityService() {
     private var lastActionTime = 0L
     private var lastScrollTime = 0L
     private var isScrolling = false
-    private var currentAppConfig: AppConfig? = null
     private var lastScrollEvents = mutableListOf<ScrollEvent>()
     private val SCROLL_DIRECTION_WINDOW = 1000L
 
@@ -129,12 +66,13 @@ class UnifiedSkipperService : AccessibilityService() {
             super.onServiceConnected()
             errorHandler = ErrorHandler.getInstance(this)
             analyticsManager = AnalyticsManager.getInstance(this)
+            keywordManager = KeywordManager.getInstance(this)
             displayWidth = resources.displayMetrics.widthPixels
             displayHeight = resources.displayMetrics.heightPixels
 
             // בדוק אם אפליקציה נוכחית היא אפליקציית מטרה
             val currentPackage = getCurrentForegroundPackage()
-            isActiveScanning = currentPackage != null && supportedApps.containsKey(currentPackage)
+            isActiveScanning = currentPackage != null && keywordManager.isSupportedApp(currentPackage)
 
             logDebug("Service connected with dimensions: $displayWidth x $displayHeight")
             logDebug("Initial scanning state: ${if (isActiveScanning) "ACTIVE" else "SLEEP"}")
@@ -168,7 +106,7 @@ class UnifiedSkipperService : AccessibilityService() {
                 currentForegroundPackage = packageName
 
                 // בדיקה אם האפליקציה הנוכחית היא אחת מאפליקציות היעד
-                val isTargetApp = packageName != null && supportedApps.containsKey(packageName)
+                val isTargetApp = packageName != null && keywordManager.isSupportedApp(packageName)
 
                 if (isTargetApp && !isActiveScanning) {
                     // התעוררות - אפליקציית מטרה נפתחה
@@ -185,10 +123,10 @@ class UnifiedSkipperService : AccessibilityService() {
             // בדיקה שלא מדובר באפליקציה רגישה
             val packageName = event.packageName?.toString()
 
-            // שימוש בשימת רשימה לבנה - נעבד רק אפליקציות שמוגדרות מראש
-            if (packageName != null && supportedApps.containsKey(packageName)) {
-                currentAppConfig = supportedApps[packageName]
-                if (currentAppConfig != null && !isPerformingAction) {
+            // שימוש ברשימה לבנה - נעבד רק אפליקציות שמוגדרות מראש
+            if (packageName != null && keywordManager.isSupportedApp(packageName)) {
+                val appConfig = keywordManager.getAppConfig(packageName)
+                if (appConfig != null && !isPerformingAction) {
                     when (event.eventType) {
                         AccessibilityEvent.TYPE_VIEW_SCROLLED,
                         AccessibilityEvent.TYPE_WINDOW_CONTENT_CHANGED,
@@ -241,15 +179,16 @@ class UnifiedSkipperService : AccessibilityService() {
 
         try {
             rootNode = rootInActiveWindow ?: return
-            val appConfig = currentAppConfig ?: return
+            val packageName = rootNode.packageName?.toString() ?: return
+            val appConfig = keywordManager.getAppConfig(packageName) ?: return
 
             // ולידציה וקיצור דרך מוקדם בקוד
-            if (!supportedApps.containsKey(appConfig.packageName)) {
+            if (!keywordManager.isSupportedApp(packageName)) {
                 return
             }
 
             // המשך הלוגיקה המקורית עם טיפול מאובטח יותר בצומת
-            when (appConfig.packageName) {
+            when (packageName) {
                 "com.facebook.katana", "com.instagram.android" -> {
                     var hasReels = false
                     var hasSponsored = false
@@ -359,7 +298,6 @@ class UnifiedSkipperService : AccessibilityService() {
                 node.recycle()
             }
 
-            sponsoredNode?.recycle()
             rootNode.recycle()
         } catch (e: Exception) {
             logError("Error in checkContent", e)
@@ -380,37 +318,6 @@ class UnifiedSkipperService : AccessibilityService() {
         }
     }
 
-    private fun isValidContent(node: AccessibilityNodeInfo?, keyword: String): Boolean {
-        if (node == null) return false
-
-        // בדיקת תוכן טקסט הצומת
-        val nodeText = node.text?.toString() ?: ""
-        val nodeContentDesc = node.contentDescription?.toString() ?: ""
-
-        // בדיקה בסיסית
-        if (nodeText.contains(keyword, ignoreCase = true) ||
-            nodeContentDesc.contains(keyword, ignoreCase = true)) {
-
-            // בדיקות נוספות - למנוע זיהוי שגוי
-
-            // אם הצומת קטן מדי - ייתכן שזה UI אחר ולא פרסומת
-            val bounds = Rect()
-            node.getBoundsInScreen(bounds)
-            if (bounds.width() < 50 || bounds.height() < 20) {
-                return false
-            }
-
-            // בדיקת אורך טקסט (על פי רוב טקסט פרסומת קצר)
-            if (nodeText.length > 100 && !nodeText.contains("sponsored", ignoreCase = true)) {
-                return false
-            }
-
-            return true
-        }
-
-        return false
-    }
-
     private fun performScroll(scrollConfig: ScrollConfig) {
         if (isScrolling) return
 
@@ -426,8 +333,8 @@ class UnifiedSkipperService : AccessibilityService() {
                 .build()
 
             // תיעוד דילוג על פרסומת
-            currentAppConfig?.let { config ->
-                analyticsManager.trackAdDetection(config.packageName, true)
+            currentForegroundPackage?.let { packageName ->
+                analyticsManager.trackAdDetection(packageName, true)
             }
 
             dispatchGesture(gestureDescription, object : GestureResultCallback() {
@@ -442,8 +349,8 @@ class UnifiedSkipperService : AccessibilityService() {
                         isScrolling = false
 
                         // תיעוד כישלון בדילוג
-                        currentAppConfig?.let { config ->
-                            analyticsManager.trackError("scroll_cancelled", "Scroll gesture cancelled for ${config.packageName}")
+                        currentForegroundPackage?.let { packageName ->
+                            analyticsManager.trackError("scroll_cancelled", "Scroll gesture cancelled for $packageName")
                         }
                     }
                 }
