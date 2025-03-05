@@ -55,3 +55,17 @@
 
 # שמירה על BuildConfig
 -keep class **.BuildConfig { *; }
+
+# שמירה על מודלים וקלאסים חשובים
+-keep class com.example.adskipper2.** { *; }
+
+# שמירה על קוד של ספריות חיצוניות חשובות
+-keep class androidx.compose.** { *; }
+-keep class com.google.mlkit.** { *; }
+
+# הגנה על Kotlin
+-keep class kotlin.** { *; }
+-keep class kotlin.Metadata { *; }
+
+# שמירה על מידע שורות קוד לדיבוג
+-keepattributes SourceFile,LineNumberTable
