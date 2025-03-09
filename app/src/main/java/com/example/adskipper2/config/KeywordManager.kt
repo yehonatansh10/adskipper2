@@ -256,7 +256,8 @@ class KeywordManager(private val context: Context) {
                 "Follows you", "Follow back",
                 "Promotional content", "Submit",
                 "How do you feel about the video you just watched?",
-                "Tap an emoji to submit"
+                "Tap an emoji to submit", "Shop now",
+                "Is this video appropriate for TikTok?"
             ),
             scrollConfig = ScrollConfig()
         )
