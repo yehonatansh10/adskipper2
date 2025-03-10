@@ -12,8 +12,6 @@ class AdDetectionManager(private val context: Context) {
     }
 
     // מילות מפתח לפי האפליקציה
-    private val adKeywordsMap = buildKeywordsMap()
-
     private val keywordManager = KeywordManager(context)
 
     private var lastDetectedBounds: Rect? = null
@@ -26,69 +24,40 @@ class AdDetectionManager(private val context: Context) {
         return lastDetectedBounds?.let { Rect(it) }
     }
 
-    private fun buildKeywordsMap(): Map<String, Set<String>> {
-        val map = HashMap<String, Set<String>>()
-
-        // מילות מפתח לטיקטוק
-        map["com.zhiliaoapp.musically"] = setOf(
-            "ממומן", "שותפות בתשלום", "החלק כדי לדלג",
-            " החלק/החליקי למעלה למעבר לפוסט הבא",
-            "לצפייה ב-stories", "תוכן פרסומי", "תוכן שיווקי",
-            "Sponsored", "View Stories",
-            "Swipe up for next post", "Swipe up to skip",
-            "LIVE now", "Tap to watch LIVE",
-            "Paid partnership", "Sign up",
-            "Follows you", "Follow back",
-            "Promotional content", "Submit",
-            "How do you feel about the video you just watched?",
-            "Tap an emoji to submit"
-        )
-
-        // מילות מפתח לאינסטגרם
-        map["com.instagram.android"] = setOf(
-            "מודעה", "ממומן", "מוצע", "פוסט ממומן",
-            "שותפות בתשלום", "רוצה לנסות?",
-            "הצעות בשבילך",
-            "Sponsored", "Suggested",
-            "Sponsored post", "Paid partnership",
-            "Suggested threads", "Get app",
-            "Turn your moments into a reel",
-            "Learn more", "Sign up", "Chat on WhatsApp"
-        )
-
-        // מילות מפתח לפייסבוק
-        map["com.facebook.katana"] = setOf(
-            "Sponsored", "ממומן"
-        )
-
-        // מילות מפתח ליוטיוב
-        map["com.google.android.youtube"] = setOf(
-            "Sponsored", "ממומן", "Start now"
-        )
-
-        return map
-    }
-
     fun detectAd(rootNode: AccessibilityNodeInfo?, packageName: String): Pair<Boolean, Rect?> {
         if (rootNode == null) return Pair(false, null)
 
         try {
             // קבלת מילות מפתח לאפליקציה
             val keywords = keywordManager.getKeywords(packageName)
-            if (keywords.isEmpty()) return Pair(false, null)
+            if (keywords.isEmpty()) {
+                Logger.d(TAG, "No keywords defined for package: $packageName")
+                return Pair(false, null)
+            }
+
+            Logger.d(TAG, "Scanning for ads in $packageName with ${keywords.size} keywords")
 
             // לוגיקה ספציפית לאפליקציות מסוימות
-            when (packageName) {
+            val result = when (packageName) {
                 "com.facebook.katana", "com.instagram.android" -> {
-                    return detectSocialMediaAd(rootNode, keywords)
+                    Logger.d(TAG, "Using social media detection for $packageName")
+                    detectSocialMediaAd(rootNode, keywords)
                 }
                 "com.google.android.youtube" -> {
-                    return detectYoutubeAd(rootNode, keywords)
+                    Logger.d(TAG, "Using YouTube detection for $packageName")
+                    detectYoutubeAd(rootNode, keywords)
                 }
                 else -> {
-                    return detectGenericAd(rootNode, keywords)
+                    Logger.d(TAG, "Using generic detection for $packageName")
+                    detectGenericAd(rootNode, keywords)
                 }
             }
+
+            if (result.first) {
+                Logger.d(TAG, "Ad detection successful in $packageName")
+            }
+
+            return result
         } catch (e: Exception) {
             Logger.e(TAG, "Error during ad detection", e)
             return Pair(false, null)
@@ -101,17 +70,22 @@ class AdDetectionManager(private val context: Context) {
 
         findNodeByText(rootNode, "Reels")?.let { reelsNode ->
             hasReels = true
+            Logger.d(TAG, "Found 'Reels' indicator in social media")
             reelsNode.recycle()
         } ?: findNodeByText(rootNode, "ריל")?.let { reelsNode ->
             hasReels = true
+            Logger.d(TAG, "Found 'ריל' indicator in social media")
             reelsNode.recycle()
         }
 
-            // בדיקת ממומן/Sponsored
+        // בדיקת ממומן/Sponsored
         for (keyword in keywords) {
             rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
                 if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
                     node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+
+                    val detectedText = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+                    Logger.d(TAG, "SOCIAL MEDIA AD DETECTED! Keyword: '$keyword' found in text: '$detectedText'")
 
                     val bounds = Rect()
                     node.getBoundsInScreen(bounds)
@@ -134,9 +108,11 @@ class AdDetectionManager(private val context: Context) {
         // בדיקת Dislike
         findNodeByText(rootNode, "Dislike")?.let { dislikeNode ->
             hasDislike = true
+            Logger.d(TAG, "Found 'Dislike' indicator in YouTube")
             dislikeNode.recycle()
         } ?: findNodeByText(rootNode, "דיסלייק")?.let { dislikeNode ->
             hasDislike = true
+            Logger.d(TAG, "Found 'דיסלייק' indicator in YouTube")
             dislikeNode.recycle()
         }
 
@@ -145,6 +121,9 @@ class AdDetectionManager(private val context: Context) {
             rootNode.findAccessibilityNodeInfosByText(keyword)?.forEach { node ->
                 if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
                     node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
+
+                    val detectedText = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+                    Logger.d(TAG, "YOUTUBE AD DETECTED! Keyword: '$keyword' found in text: '$detectedText'")
 
                     val bounds = Rect()
                     node.getBoundsInScreen(bounds)
@@ -175,6 +154,9 @@ class AdDetectionManager(private val context: Context) {
                 if (node.text?.toString()?.contains(keyword, ignoreCase = true) == true ||
                     node.contentDescription?.toString()?.contains(keyword, ignoreCase = true) == true) {
 
+                    val detectedText = node.text?.toString() ?: node.contentDescription?.toString() ?: ""
+                    Logger.d(TAG, "GENERIC AD DETECTED! Keyword: '$keyword' found in text: '$detectedText'")
+
                     val bounds = Rect()
                     node.getBoundsInScreen(bounds)
                     return Pair(true, bounds)
@@ -188,6 +170,7 @@ class AdDetectionManager(private val context: Context) {
 
     private fun findNodeByText(node: AccessibilityNodeInfo, text: String): AccessibilityNodeInfo? {
         if (node.text?.toString()?.contains(text, ignoreCase = true) == true) {
+            Logger.d(TAG, "Found node with text: '$text'")
             return AccessibilityNodeInfo.obtain(node)
         }
 
