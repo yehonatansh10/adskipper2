@@ -128,6 +128,37 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun setupPeriodicStatusCheck() {
+        val handler = Handler(Looper.getMainLooper())
+        val statusChecker = object : Runnable {
+            override fun run() {
+                // בדיקת מצב השירות
+                checkServiceStatus()
+
+                if (isServiceRunning.value) {
+                    // אם השירות פעיל אבל אפליקציית המטרה לא מגיבה, הפעל מחדש
+                    val isTargetAppResponding = checkTargetAppResponding()
+                    if (!isTargetAppResponding) {
+                        Logger.d(TAG, "Target app not responding, restarting service")
+                        stopSkipperService()
+                        handler.postDelayed({ startSkipperService() }, 1000)
+                    }
+                }
+
+                handler.postDelayed(this, 60000) // בדיקה כל דקה
+            }
+        }
+
+        handler.post(statusChecker)
+    }
+
+    private fun checkTargetAppResponding(): Boolean {
+        // בדיקה פשוטה אם האפליקציה מגיבה
+        // אפשר לנסות לקבל מידע מהשירות או לבדוק אם הייתה פעילות לאחרונה
+        val lastActivityTime = serviceManager.getLastActivityTime()
+        return System.currentTimeMillis() - lastActivityTime < 5 * 60 * 1000 // 5 דקות
+    }
+
     // בדיקה אם המשתמש כבר הסכים לתנאים בעבר
     private fun checkLegalAgreement() {
         val prefs = getSharedPreferences("legal_prefs", MODE_PRIVATE)

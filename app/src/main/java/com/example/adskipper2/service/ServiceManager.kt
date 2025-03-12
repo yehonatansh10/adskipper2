@@ -11,6 +11,7 @@ class ServiceManager private constructor(private val context: Context) {
         private const val TAG = "ServiceManager"
         private const val PREFS_NAME = "service_prefs"
         private const val KEY_SERVICE_ENABLED = "service_enabled"
+        private const val KEY_LAST_ACTIVITY = "last_activity_time"
 
         @Volatile
         private var instance: ServiceManager? = null
@@ -23,6 +24,21 @@ class ServiceManager private constructor(private val context: Context) {
     }
 
     private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+
+    private var lastActivityTime = System.currentTimeMillis()
+    private val activityLock = Any()
+
+    fun recordActivity() {
+        synchronized(activityLock) {
+            lastActivityTime = System.currentTimeMillis()
+        }
+    }
+
+    fun getLastActivityTime(): Long {
+        synchronized(activityLock) {
+            return lastActivityTime
+        }
+    }
 
     fun startService() {
         try {

@@ -14,6 +14,7 @@ import com.example.adskipper2.config.ScrollConfig
 import com.example.adskipper2.service.ServiceState
 import com.example.adskipper2.util.ErrorHandler
 import com.example.adskipper2.util.Logger
+import com.example.adskipper2.service.ServiceManager
 
 class UnifiedSkipperService : AccessibilityService() {
     private lateinit var errorHandler: ErrorHandler
@@ -60,6 +61,7 @@ class UnifiedSkipperService : AccessibilityService() {
     private var isScrolling = false
     private var lastScrollEvents = mutableListOf<ScrollEvent>()
     private val SCROLL_DIRECTION_WINDOW = 1000L
+    private val recentPackageEvents = ArrayDeque<String>(5)
 
     override fun onServiceConnected() {
         try {
@@ -69,6 +71,14 @@ class UnifiedSkipperService : AccessibilityService() {
             keywordManager = KeywordManager.getInstance(this)
             displayWidth = resources.displayMetrics.widthPixels
             displayHeight = resources.displayMetrics.heightPixels
+
+            // אתחול מחדש של הפרמטרים מחשש לסגירה וחזרה
+            isPerformingAction = false
+            isScrolling = false
+            lastScrollEvents.clear()
+
+            // הפעלת ניטור חוזר כל 30 שניות לוודא שהשירות עדיין פעיל
+            setupWatchdog()
 
             // בדוק אם אפליקציה נוכחית היא אפליקציית מטרה
             val currentPackage = getCurrentForegroundPackage()
@@ -81,12 +91,57 @@ class UnifiedSkipperService : AccessibilityService() {
         }
     }
 
+    private fun setupWatchdog() {
+        handler.postDelayed(object : Runnable {
+            override fun run() {
+                if (isServiceActive) {
+                    // בדיקת מצב נוכחי ורענון אם צריך
+                    val currentPackage = getCurrentForegroundPackage()
+                    if (currentPackage != null && keywordManager.isSupportedApp(currentPackage)) {
+                        if (!isActiveScanning) {
+                            activateFullService()
+                        }
+                        // בדיקת תוכן מחדש למקרה שפספסנו משהו
+                        checkContent()
+                    }
+                    // המשך ניטור
+                    handler.postDelayed(this, 30000)
+                }
+            }
+        }, 30000)
+    }
+
+    private fun setupPeriodicCheck() {
+        handler.postDelayed({
+            if (isServiceActive) {
+                // בדוק רק אם נמצאים באפליקציית מטרה
+                val currentPackage = getCurrentForegroundPackage()
+                if (currentPackage != null && keywordManager.isSupportedApp(currentPackage)) {
+                    checkContent()
+                }
+                setupPeriodicCheck()
+            }
+        }, 2 * 60 * 1000)
+    }
+
     // הוסף מתודה חדשה זו אחרי onServiceConnected
     private fun getCurrentForegroundPackage(): String? {
         try {
             // קבלת חלון שירות הנגישות הנוכחי
             val rootNode = rootInActiveWindow
-            return rootNode?.packageName?.toString()
+            val result = rootNode?.packageName?.toString()
+            rootNode?.recycle()
+
+            // אם לא הצלחנו לקבל את החבילה, ננסה דרך אלטרנטיבית
+            if (result == null) {
+                // ללא גישה ישירה למערכת ניהול החבילות, ננסה לבדוק לפי האירועים האחרונים
+                val events = getRecentPackageEvents()
+                if (events.isNotEmpty()) {
+                    return events.first()
+                }
+            }
+
+            return result
         } catch (e: Exception) {
             logError("Error getting current package", e)
             return null
@@ -104,16 +159,35 @@ class UnifiedSkipperService : AccessibilityService() {
 
             if (packageName != currentForegroundPackage) {
                 currentForegroundPackage = packageName
+                ServiceManager.getInstance(this).recordActivity()
 
                 // בדיקה אם האפליקציה הנוכחית היא אחת מאפליקציות היעד
                 val isTargetApp = packageName != null && keywordManager.isSupportedApp(packageName)
 
                 if (isTargetApp && !isActiveScanning) {
-                    // התעוררות - אפליקציית מטרה נפתחה
+                    // התעוררות כשנמצאים באפליקציית מטרה
                     activateFullService()
+                    // התחלת הבדיקות התקופתיות
+                    setupPeriodicCheck()
                 } else if (!isTargetApp && isActiveScanning) {
-                    // כניסה למצב שינה - עזבנו את אפליקציית המטרה
+                    // כניסה למצב שינה - הפסקת כל הבדיקות
                     enterSleepMode()
+                    // הפסקת הבדיקות התקופתיות
+                    handler.removeCallbacksAndMessages(null)
+                }
+
+            }
+        }
+
+        event.packageName?.toString()?.let { packageName ->
+            if (packageName.isNotEmpty()) {
+                synchronized(recentPackageEvents) {
+                    if (!recentPackageEvents.contains(packageName)) {
+                        recentPackageEvents.add(packageName)
+                        if (recentPackageEvents.size > 5) {
+                            recentPackageEvents.removeFirst()
+                        }
+                    }
                 }
             }
         }
@@ -136,6 +210,12 @@ class UnifiedSkipperService : AccessibilityService() {
                     }
                 }
             }
+        }
+    }
+
+    private fun getRecentPackageEvents(): List<String> {
+        synchronized(recentPackageEvents) {
+            return recentPackageEvents.toList()
         }
     }
 
@@ -176,9 +256,11 @@ class UnifiedSkipperService : AccessibilityService() {
 
         var rootNode: AccessibilityNodeInfo? = null
         var sponsoredNode: AccessibilityNodeInfo? = null
+        val nodesToRecycle = mutableListOf<AccessibilityNodeInfo>()
 
         try {
             rootNode = rootInActiveWindow ?: return
+            nodesToRecycle.add(rootNode)
             val packageName = rootNode.packageName?.toString() ?: return
             val appConfig = keywordManager.getAppConfig(packageName) ?: return
 
@@ -291,6 +373,7 @@ class UnifiedSkipperService : AccessibilityService() {
                     if ((scrollForward == true || scrollForward == null) &&
                         currentTime - lastScrollTime > appConfig.scrollConfig.cooldown) {
                         logDebug("Found ad in ${appConfig.packageName} with bounds: ${bounds.centerY()}")
+                        ServiceManager.getInstance(this).recordActivity()
                         performScroll(appConfig.scrollConfig)
                         lastScrollTime = currentTime
                     }
@@ -303,7 +386,17 @@ class UnifiedSkipperService : AccessibilityService() {
             logError("Error in checkContent", e)
             errorHandler.handleError(TAG, e, false)
         } finally {
-            // וידוא שחרור משאבים גם במקרה של שגיאה
+            // וידוא שחרור כל המשאבים גם במקרה של שגיאה
+            nodesToRecycle.forEach { node ->
+                try {
+                    if (node != sponsoredNode && node != rootNode) {
+                        node.recycle()
+                    }
+                } catch (e: Exception) {
+                    // התעלם משגיאות בשחרור
+                }
+            }
+
             safeRecycle(sponsoredNode)
             safeRecycle(rootNode)
         }
@@ -336,6 +429,8 @@ class UnifiedSkipperService : AccessibilityService() {
             currentForegroundPackage?.let { packageName ->
                 analyticsManager.trackAdDetection(packageName, true)
             }
+
+            ServiceManager.getInstance(this).recordActivity()
 
             dispatchGesture(gestureDescription, object : GestureResultCallback() {
                 override fun onCompleted(gestureDescription: GestureDescription) {
