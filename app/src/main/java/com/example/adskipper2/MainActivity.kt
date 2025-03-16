@@ -44,6 +44,8 @@ import com.google.mlkit.vision.text.latin.TextRecognizerOptions
 import java.io.File
 import android.view.accessibility.AccessibilityManager
 import android.content.Context
+import com.example.adskipper2.storage.SecurePreferences
+import androidx.appcompat.app.AlertDialog
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -115,6 +117,11 @@ class MainActivity : ComponentActivity() {
             super.onCreate(savedInstanceState)
             Logger.d(TAG, "App started")
             initializeComponents()
+            val securePreferences = SecurePreferences(this)
+            if (securePreferences.shouldShowEncryptionWarning()) {
+                showEncryptionWarningDialog()
+                securePreferences.markEncryptionWarningShown()
+            }
             checkLegalAgreement()
             setupUI()
             setupTouchListener()
@@ -126,6 +133,14 @@ class MainActivity : ComponentActivity() {
             Logger.e(TAG, "Error in onCreate: ${e.message}", e)
             Toast.makeText(this, "Error initializing the application", Toast.LENGTH_LONG).show()
         }
+    }
+
+    private fun showEncryptionWarningDialog() {
+        AlertDialog.Builder(this)
+            .setTitle(R.string.encryption_warning_title)
+            .setMessage(R.string.encryption_warning_message)
+            .setPositiveButton(android.R.string.ok, null)
+            .show()
     }
 
     private fun setupPeriodicStatusCheck() {

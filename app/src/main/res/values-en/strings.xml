@@ -64,4 +64,7 @@
     <string name="service_started_successfully">Skip service started successfully</string>
     <string name="error_permissions">Cannot run the application without required permissions</string>
     <string name="battery_optimization">The app may close in the background. For the best experience, disable battery optimization for this app</string>
+
+    <string name="encryption_warning_title">Storage Security Notice</string>
+    <string name="encryption_warning_message">Your device does not support secure encrypted storage. The app will continue to work, but some sensitive data may be stored with limited protection. This is a limitation of your device and does not affect the core functionality of the app.</string>
 </resources>

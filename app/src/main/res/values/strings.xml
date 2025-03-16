@@ -65,4 +65,7 @@
     <string name="review_terms">Read Terms of Service</string>
     <string name="language_switch">Switch Language</string>
     <string name="legal_agreement_title">User Agreement</string>
+
+    <string name="encryption_warning_title">הודעת אבטחת אחסון</string>
+    <string name="encryption_warning_message">המכשיר שלך אינו תומך באחסון מוצפן מאובטח. האפליקציה תמשיך לעבוד, אך חלק מהנתונים הרגישים עשויים להישמר עם הגנה מוגבלת. זוהי מגבלה של המכשיר שלך ואינה משפיעה על הפונקציונליות הבסיסית של האפליקציה.</string>
 </resources>

@@ -15,23 +15,26 @@ class SecurePreferences(private val context: Context) {
         private const val PREF_NAME = "secure_targets"
         private const val FALLBACK_PREF_NAME = "secure_targets_fallback"
         private const val ENCRYPTED_INDICATOR = "is_encrypted"
+        private const val KEY_SHOW_ENCRYPTION_WARNING = "show_encryption_warning"
     }
 
     // יצירת מפתח מאסטר
     private val masterKey by lazy {
         try {
+            // ניסיון ראשון עם הגדרות מומלצות
             MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                 .setUserAuthenticationRequired(false)
                 .build()
         } catch (e: Exception) {
-            Logger.e(TAG, "Error creating MasterKey, using default scheme", e)
+            Logger.e(TAG, "Error creating MasterKey with primary scheme, trying fallback", e)
             try {
+                // ניסיון שני עם הגדרות יותר בסיסיות
                 MasterKey.Builder(context)
                     .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
                     .build()
             } catch (e: Exception) {
-                Logger.e(TAG, "Failed to create any MasterKey", e)
+                Logger.e(TAG, "Failed to create any MasterKey, using null with fallback storage", e)
                 null
             }
         }
@@ -59,12 +62,15 @@ class SecurePreferences(private val context: Context) {
             // סמן שאלו העדפות מוצפנות
             encryptedPrefs.edit().putBoolean(ENCRYPTED_INDICATOR, true).apply()
 
+            // אפס את דגל האזהרה - ההצפנה עובדת תקין
+            getEncryptionWarningPrefs().edit().putBoolean(KEY_SHOW_ENCRYPTION_WARNING, false).apply()
+
             encryptedPrefs
         } catch (e: Exception) {
             Logger.e(TAG, "Failed to create EncryptedSharedPreferences: ${Logger.sanitizeMessage(e.message ?: "Unknown error")}", e)
 
-            // במקרה של כישלון, השתמש בהעדפות רגילות אבל עם הגבלות
-            showEncryptionFailureNotification()
+            // סמן שיש להציג אזהרה למשתמש בהפעלה הבאה
+            getEncryptionWarningPrefs().edit().putBoolean(KEY_SHOW_ENCRYPTION_WARNING, true).apply()
 
             // יצירת העדפות רגילות, אבל עם הגבלת מידע רגיש
             val fallbackPrefs = context.getSharedPreferences(FALLBACK_PREF_NAME, Context.MODE_PRIVATE)
@@ -72,6 +78,11 @@ class SecurePreferences(private val context: Context) {
 
             fallbackPrefs
         }
+    }
+
+    // הוסף מתודה זו לקבלת ההעדפות של אזהרות ההצפנה
+    private fun getEncryptionWarningPrefs(): SharedPreferences {
+        return context.getSharedPreferences("encryption_warning_prefs", Context.MODE_PRIVATE)
     }
 
     // הודעה למשתמש שההצפנה נכשלה ויוצבו הגבלות
@@ -91,6 +102,20 @@ class SecurePreferences(private val context: Context) {
             }
             apply()
         }
+    }
+
+    /**
+     * בודק אם יש צורך להציג אזהרת הצפנה למשתמש
+     */
+    fun shouldShowEncryptionWarning(): Boolean {
+        return getEncryptionWarningPrefs().getBoolean(KEY_SHOW_ENCRYPTION_WARNING, false)
+    }
+
+    /**
+     * מסמן שהאזהרה הוצגה למשתמש
+     */
+    fun markEncryptionWarningShown() {
+        getEncryptionWarningPrefs().edit().putBoolean(KEY_SHOW_ENCRYPTION_WARNING, false).apply()
     }
 
     fun getSelectedAppPackages(): Set<String> {
