@@ -3,6 +3,7 @@ package com.example.adskipper2.util
 import android.util.Log
 import com.example.adskipper2.BuildConfig
 import java.util.regex.Pattern
+import android.content.Context
 
 object Logger {
     private const val TAG_PREFIX = "AdSkipper_"
@@ -16,6 +17,11 @@ object Logger {
     )
 
     private var logLevel = if (BuildConfig.DEBUG) Log.VERBOSE else Log.ERROR
+    private var encryptedLogger: EncryptedLogger? = null
+
+    fun initialize(context: Context) {
+        encryptedLogger = EncryptedLogger.getInstance(context)
+    }
 
     // טיפול בהודעות ארוכות ורגישות
     fun d(tag: String, message: String) {
@@ -34,9 +40,12 @@ object Logger {
             Log.e("$TAG_PREFIX$tag", safeMessage)
         }
 
-        // בגרסת שחרור, שמור שגיאות קריטיות במסד נתונים מקומי ללא מידע רגיש
+        // Also log to encrypted storage
+        encryptedLogger?.logEvent(tag, safeMessage + (throwable?.let { " Exception: ${it.message}" } ?: ""), true)
+
+        // In release version, store critical errors in local database without sensitive info
         if (!BuildConfig.DEBUG) {
-            // כאן ניתן להוסיף לוגיקה לשמירת שגיאות לשימוש בעתיד
+            // Can add more logic here if needed
         }
     }
 

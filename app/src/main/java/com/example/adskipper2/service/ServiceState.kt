@@ -1,6 +1,7 @@
 package com.example.adskipper2.service
 
 import android.content.Context
+import com.example.adskipper2.storage.SecurePreferences
 
 interface ServiceState {
     fun setEnabled(enabled: Boolean)
@@ -18,14 +19,14 @@ interface ServiceState {
     }
 
     private class ServiceStateImpl(context: Context) : ServiceState {
-        private val prefs = context.applicationContext.getSharedPreferences("service_state", Context.MODE_PRIVATE)
+        private val securePrefs = SecurePreferences(context.applicationContext)
 
         override fun setEnabled(enabled: Boolean) {
-            prefs.edit().putBoolean("is_enabled", enabled).apply()
+            securePrefs.putBoolean("is_enabled", enabled)
         }
 
         override fun isEnabled(): Boolean {
-            return prefs.getBoolean("is_enabled", false)
+            return securePrefs.getBoolean("is_enabled", false)
         }
     }
 }

@@ -34,6 +34,7 @@ class ErrorHandler private constructor(private val context: Context) {
     // מעקב אחרי תדירות השגיאות
     private val errorCounters = ConcurrentHashMap<String, Int>()
     private val lastErrorTimes = ConcurrentHashMap<String, Long>()
+    private val encryptedLogger = EncryptedLogger.getInstance(context)
 
     /**
      * טיפול בשגיאה כללית
@@ -153,6 +154,8 @@ class ErrorHandler private constructor(private val context: Context) {
             }
 
             val logFile = File(logDir, ERROR_LOG_FILENAME)
+            val errorMessage = "${error.javaClass.name} - ${error.message}"
+            encryptedLogger.logEvent(tag, errorMessage, true)
 
             // מגבלת גודל - מחיקת הקובץ אם גדול מדי
             if (logFile.exists() && logFile.length() > 1024 * 1024) { // 1MB
@@ -164,7 +167,7 @@ class ErrorHandler private constructor(private val context: Context) {
                 writer.append("[$timestamp] $tag: ${error.javaClass.name} - ${error.message}\n")
 
                 error.stackTrace.take(5).forEach { stackElement ->
-                    writer.append("    at $stackElement\n")
+                    encryptedLogger.logEvent(tag, "    at $stackElement", true)
                 }
                 writer.append("\n")
             }
@@ -178,16 +181,20 @@ class ErrorHandler private constructor(private val context: Context) {
      * קבלת לוג שגיאות לצורך דיווח
      */
     fun getErrorLog(): String {
-        val logFile = File(File(context.filesDir, "logs"), ERROR_LOG_FILENAME)
-        return if (logFile.exists()) {
-            try {
+        val standardLog = try {
+            val logFile = File(File(context.filesDir, "logs"), ERROR_LOG_FILENAME)
+            if (logFile.exists()) {
                 logFile.readText()
-            } catch (e: Exception) {
-                "Error reading log file: ${e.message}"
+            } else {
+                "No standard error log found"
             }
-        } else {
-            "No error log found"
+        } catch (e: Exception) {
+            "Error reading standard log file: ${e.message}"
         }
+
+        val encryptedLog = encryptedLogger.getLogContents()
+
+        return "=== STANDARD LOG ===\n$standardLog\n\n=== ENCRYPTED LOG ===\n$encryptedLog"
     }
 
     /**
@@ -198,6 +205,7 @@ class ErrorHandler private constructor(private val context: Context) {
         if (logFile.exists()) {
             logFile.delete()
         }
+        encryptedLogger.clearLogs()
         errorCounters.clear()
         lastErrorTimes.clear()
     }

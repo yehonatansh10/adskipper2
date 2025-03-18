@@ -10,6 +10,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.collections.HashMap
+import com.example.adskipper2.storage.SecurePreferences
 
 /**
  * מנהל אנליטיקה פנימי שומר נתונים מקומית בלבד, אינו שולח מידע לשרת חיצוני
@@ -43,8 +44,8 @@ class AnalyticsManager private constructor(private val context: Context) {
         val count: Int = 1
     )
 
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
     private val gson = Gson()
+    private val securePrefs = SecurePreferences(context)
     private val eventsMap = loadEvents()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd", Locale.US)
 
@@ -104,18 +105,16 @@ class AnalyticsManager private constructor(private val context: Context) {
         }
 
         // בדיקה אם זו הפעם הראשונה
-        if (!prefs.contains(KEY_FIRST_LAUNCH)) {
-            prefs.edit().putLong(KEY_FIRST_LAUNCH, currentTime).apply()
+        if (!securePrefs.contains(KEY_FIRST_LAUNCH)) {
+            securePrefs.putLong(KEY_FIRST_LAUNCH, currentTime)
         }
 
         // עדכון מידע הפעלה
-        val launchCount = prefs.getInt(KEY_LAUNCH_COUNT, 0) + 1
+        val launchCount = securePrefs.getInt(KEY_LAUNCH_COUNT, 0) + 1
 
-        prefs.edit()
-            .putLong(KEY_LAST_LAUNCH, currentTime)
-            .putInt(KEY_LAUNCH_COUNT, launchCount)
-            .putString(KEY_APP_VERSION, appVersion)
-            .apply()
+        securePrefs.putLong(KEY_LAST_LAUNCH, currentTime)
+        securePrefs.putInt(KEY_LAUNCH_COUNT, launchCount)
+        securePrefs.putString(KEY_APP_VERSION, appVersion)
 
         // תיעוד הפעלה עם מידע על המכשיר (מידע לא מזהה)
         val deviceInfo = mapOf(
@@ -157,7 +156,7 @@ class AnalyticsManager private constructor(private val context: Context) {
      */
     fun getUsageStats(): Map<String, Any> {
         val currentTime = System.currentTimeMillis()
-        val firstLaunchTime = prefs.getLong(KEY_FIRST_LAUNCH, currentTime)
+        val firstLaunchTime = securePrefs.getLong(KEY_FIRST_LAUNCH, currentTime)
         val daysSinceFirstLaunch = TimeUnit.MILLISECONDS.toDays(currentTime - firstLaunchTime)
 
         val appLaunches = eventsMap.filter { it.key.startsWith("app_launch:") }
@@ -193,7 +192,7 @@ class AnalyticsManager private constructor(private val context: Context) {
      * טעינת אירועים מהעדפות משותפות
      */
     private fun loadEvents(): HashMap<String, EventData> {
-        val eventsJson = prefs.getString(KEY_EVENTS, null)
+        val eventsJson = securePrefs.getString(KEY_EVENTS, null)
         return if (eventsJson != null) {
             try {
                 val type = object : TypeToken<HashMap<String, EventData>>() {}.type
@@ -213,7 +212,7 @@ class AnalyticsManager private constructor(private val context: Context) {
     private fun saveEvents() {
         try {
             val eventsJson = gson.toJson(eventsMap)
-            prefs.edit().putString(KEY_EVENTS, eventsJson).apply()
+            securePrefs.putString(KEY_EVENTS, eventsJson)
         } catch (e: Exception) {
             Logger.e(TAG, "Error saving events", e)
         }
@@ -247,11 +246,10 @@ class AnalyticsManager private constructor(private val context: Context) {
             eventsMap.clear()
             saveEvents()
 
-            prefs.edit()
-                .remove(KEY_FIRST_LAUNCH)
-                .remove(KEY_LAST_LAUNCH)
-                .putInt(KEY_LAUNCH_COUNT, 0)
-                .apply()
+            // Replace the edit() chain with individual method calls
+            securePrefs.remove(KEY_FIRST_LAUNCH)
+            securePrefs.remove(KEY_LAST_LAUNCH)
+            securePrefs.putInt(KEY_LAUNCH_COUNT, 0)
         }
     }
 }

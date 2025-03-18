@@ -5,6 +5,7 @@ import android.content.Intent
 import android.content.SharedPreferences
 import com.example.adskipper2.UnifiedSkipperService
 import com.example.adskipper2.util.Logger
+import com.example.adskipper2.storage.SecurePreferences
 
 class ServiceManager private constructor(private val context: Context) {
     companion object {
@@ -23,7 +24,7 @@ class ServiceManager private constructor(private val context: Context) {
         }
     }
 
-    private val prefs: SharedPreferences = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+    private val securePrefs = SecurePreferences(context)
 
     private var lastActivityTime = System.currentTimeMillis()
     private val activityLock = Any()
@@ -63,10 +64,10 @@ class ServiceManager private constructor(private val context: Context) {
     }
 
     fun isServiceEnabled(): Boolean {
-        return prefs.getBoolean(KEY_SERVICE_ENABLED, false)
+        return securePrefs.getBoolean(KEY_SERVICE_ENABLED, false)
     }
 
     private fun setServiceEnabled(enabled: Boolean) {
-        prefs.edit().putBoolean(KEY_SERVICE_ENABLED, enabled).apply()
+        securePrefs.putBoolean(KEY_SERVICE_ENABLED, enabled)
     }
 }

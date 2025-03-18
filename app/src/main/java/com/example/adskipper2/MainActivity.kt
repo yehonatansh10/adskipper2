@@ -50,7 +50,7 @@ import androidx.appcompat.app.AlertDialog
 data class AppInfo(val name: String, val packageName: String)
 
 class MainActivity : ComponentActivity() {
-    private lateinit var prefs: SharedPreferences
+    private lateinit var securePrefs: SecurePreferences
     private lateinit var gestureRecorder: GestureRecorder
     private lateinit var gesturePlayer: GesturePlayer
     private lateinit var errorHandler: ErrorHandler
@@ -115,6 +115,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         try {
             super.onCreate(savedInstanceState)
+            Logger.initialize(applicationContext)
             Logger.d(TAG, "App started")
             initializeComponents()
             val securePreferences = SecurePreferences(this)
@@ -200,7 +201,7 @@ class MainActivity : ComponentActivity() {
             errorHandler = ErrorHandler.getInstance(this)
             analyticsManager = AnalyticsManager.getInstance(this)
             keywordManager = KeywordManager.getInstance(this)
-            prefs = getSharedPreferences("targets", MODE_PRIVATE)
+            securePrefs = SecurePreferences(this)
             gestureRecorder = GestureRecorder()
             gesturePlayer = GesturePlayer(this)
             serviceManager = ServiceManager.getInstance(this)

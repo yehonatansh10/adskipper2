@@ -135,6 +135,46 @@ class SecurePreferences(private val context: Context) {
         return prefs.getBoolean(ENCRYPTED_INDICATOR, false)
     }
 
+    fun putBoolean(key: String, value: Boolean) {
+        prefs.edit().putBoolean(key, value).apply()
+    }
+
+    fun getBoolean(key: String, defaultValue: Boolean): Boolean {
+        return prefs.getBoolean(key, defaultValue)
+    }
+
+    fun putInt(key: String, value: Int) {
+        prefs.edit().putInt(key, value).apply()
+    }
+
+    fun getInt(key: String, defaultValue: Int): Int {
+        return prefs.getInt(key, defaultValue)
+    }
+
+    fun putLong(key: String, value: Long) {
+        prefs.edit().putLong(key, value).apply()
+    }
+
+    fun getLong(key: String, defaultValue: Long): Long {
+        return prefs.getLong(key, defaultValue)
+    }
+
+    fun putStringSet(key: String, values: Set<String>) {
+        prefs.edit().putStringSet(key, values).apply()
+    }
+
+    fun getStringSet(key: String, defaultValues: Set<String>): Set<String> {
+        return prefs.getStringSet(key, defaultValues) ?: defaultValues
+    }
+
+    fun contains(key: String): Boolean {
+        return prefs.contains(key)
+    }
+
+    fun remove(key: String) {
+        prefs.edit().remove(key).apply()
+    }
+
     // במקרה שצריך לאפס את כל ההעדפות
     fun clearAllPreferences() {
         prefs.edit().clear().apply()
