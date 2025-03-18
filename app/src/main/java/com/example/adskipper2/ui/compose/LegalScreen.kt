@@ -16,6 +16,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.viewinterop.AndroidView
 import com.example.adskipper2.R
+import android.net.http.SslError
+import android.os.Build
+import android.webkit.SslErrorHandler
+import android.webkit.WebSettings
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -94,8 +98,35 @@ fun LegalScreen(
                 AndroidView(
                     factory = { context ->
                         WebView(context).apply {
-                            webViewClient = WebViewClient()
-                            settings.javaScriptEnabled = false
+                            webViewClient = object : WebViewClient() {
+                                // מניעת פתיחת דפים חיצוניים
+                                override fun shouldOverrideUrlLoading(view: WebView?, url: String?): Boolean {
+                                    return url?.startsWith("file:///android_asset/") != true
+                                }
+
+                                // מניעת גישה לתוכן חיצוני
+                                override fun onReceivedSslError(view: WebView?, handler: SslErrorHandler?, error: SslError?) {
+                                    handler?.cancel()
+                                }
+                            }
+
+                            settings.apply {
+                                javaScriptEnabled = false  // כבר מוגדר אצלך, זה מצוין
+                                allowFileAccess = false     // מניעת גישה לקבצים אחרים
+                                allowContentAccess = false  // מניעת גישה לספקי תוכן
+                                allowFileAccessFromFileURLs = false  // מניעת גישה מקובץ לקובץ
+                                allowUniversalAccessFromFileURLs = false  // מניעת גישה אוניברסלית
+
+                                setSupportMultipleWindows(false)  // מניעת פתיחת חלונות נוספים
+                                javaScriptCanOpenWindowsAutomatically = false  // מניעת פתיחת חלונות אוטומטית
+
+                                // הגבלת זיכרון מטמון
+                                setCacheMode(WebSettings.LOAD_NO_CACHE)
+
+                                // הגדרות נוספות לאבטחה
+                                mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+                            }
+
                             loadUrl("file:///android_asset/${documentType.fileName}")
                         }
                     },
