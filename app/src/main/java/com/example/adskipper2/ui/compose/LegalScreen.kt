@@ -125,6 +125,10 @@ fun LegalScreen(
 
                                 // הגדרות נוספות לאבטחה
                                 mixedContentMode = WebSettings.MIXED_CONTENT_NEVER_ALLOW
+
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                                    safeBrowsingEnabled = true
+                                }
                             }
 
                             loadUrl("file:///android_asset/${documentType.fileName}")
