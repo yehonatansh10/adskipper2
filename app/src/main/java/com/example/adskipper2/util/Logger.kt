@@ -10,24 +10,41 @@ object Logger {
     private const val MAX_LOG_LENGTH = 1000 // הגבלת אורך הודעות היומן
 
     private val SENSITIVE_PATTERNS = arrayOf(
-        Pattern.compile("password|pwd|token|key", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("password[=:].*?[&;\\s]", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("pwd[=:].*?[&;\\s]", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("token[=:].*?[&;\\s]", Pattern.CASE_INSENSITIVE),
+        Pattern.compile("key[=:].*?[&;\\s]", Pattern.CASE_INSENSITIVE),
         Pattern.compile("\\d{4}[- ]?\\d{4}[- ]?\\d{4}[- ]?\\d{4}"), // כרטיסי אשראי
         Pattern.compile("[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,6}"), // אימיילים
-        Pattern.compile("/.*/.*/") // נתיבי קבצים
+        Pattern.compile("/.*/.*/"), // נתיבי קבצים
+        Pattern.compile("Bearer\\s+[A-Za-z0-9\\-\\._~\\+/]+=*"), // JWT tokens
+        Pattern.compile("api_key[=:]\\s*['\"]?[\\w\\-]+['\"]?", Pattern.CASE_INSENSITIVE)
     )
 
     private var logLevel = if (BuildConfig.DEBUG) Log.VERBOSE else Log.ERROR
     private var encryptedLogger: EncryptedLogger? = null
+    private var securityLogs: Boolean = true // אם להפעיל לוגים מאובטחים
 
     fun initialize(context: Context) {
         encryptedLogger = EncryptedLogger.getInstance(context)
+
+        // רוטציית לוגים ישנים בהתחלה - קריאה למתודה של EncryptedLogger
+        encryptedLogger?.cleanupOldLogs()
     }
+
+    // הסרנו את הפונקציה cleanupOldLogs ונשתמש ישירות בקריאה למתודה של encryptedLogger
 
     // טיפול בהודעות ארוכות ורגישות
     fun d(tag: String, message: String) {
+        val safeMessage = truncateAndSanitize(message)
+
         if (BuildConfig.DEBUG) {
-            val safeMessage = truncateAndSanitize(message)
             Log.d("$TAG_PREFIX$tag", safeMessage)
+        }
+
+        // שמירת כל הלוגים גם במאגר מאובטח בנוסף
+        if (securityLogs) {
+            encryptedLogger?.logEvent(tag, safeMessage, false)
         }
     }
 
@@ -40,12 +57,16 @@ object Logger {
             Log.e("$TAG_PREFIX$tag", safeMessage)
         }
 
-        // Also log to encrypted storage
+        // שמירת לוג שגיאה במאגר מאובטח
         encryptedLogger?.logEvent(tag, safeMessage + (throwable?.let { " Exception: ${it.message}" } ?: ""), true)
 
-        // In release version, store critical errors in local database without sensitive info
-        if (!BuildConfig.DEBUG) {
-            // Can add more logic here if needed
+        // לוג אירוע אבטחה במקרה של שגיאות אבטחה
+        if (tag.contains("Security") ||
+            tag.contains("Crypto") ||
+            message.contains("security") ||
+            message.contains("encryp") ||
+            message.contains("auth")) {
+            encryptedLogger?.logSecurityEvent("SECURITY_ERROR", safeMessage + (throwable?.let { " ${it.message}" } ?: ""))
         }
     }
 
@@ -69,5 +90,25 @@ object Logger {
         }
 
         return sanitizeMessage(truncated)
+    }
+
+    // מאפשר לכבות/להפעיל לוגים מאובטחים
+    fun setSecurityLogging(enabled: Boolean) {
+        securityLogs = enabled
+    }
+
+    // יומן אירועי אבטחה ספציפיים
+    fun logSecurityEvent(event: String, details: String) {
+        encryptedLogger?.logSecurityEvent(event, details)
+    }
+
+    // מחזיר את כל הלוגים המאובטחים - מוגן בסיסמה
+    fun getSecureLogs(password: String): String {
+        // יישום פשוט למטרות הדגמה - בפועל יש להוסיף אימות משתמש חזק יותר
+        return if (password == "AdSkipperAdmin") { // סיסמה בסיסית להדגמה, יש להחליף בייצור
+            encryptedLogger?.getLogContents() ?: "No logs available"
+        } else {
+            "Access denied"
+        }
     }
 }

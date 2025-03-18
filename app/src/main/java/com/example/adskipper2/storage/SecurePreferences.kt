@@ -2,12 +2,18 @@ package com.example.adskipper2.storage
 
 import android.content.Context
 import android.content.SharedPreferences
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
 import com.example.adskipper2.AppInfo
 import com.example.adskipper2.util.Logger
 import java.security.GeneralSecurityException
+import java.security.MessageDigest
 import java.io.IOException
+import javax.crypto.Cipher
+import javax.crypto.spec.SecretKeySpec
+import android.util.Base64
 
 class SecurePreferences(private val context: Context) {
     companion object {
@@ -16,15 +22,34 @@ class SecurePreferences(private val context: Context) {
         private const val FALLBACK_PREF_NAME = "secure_targets_fallback"
         private const val ENCRYPTED_INDICATOR = "is_encrypted"
         private const val KEY_SHOW_ENCRYPTION_WARNING = "show_encryption_warning"
+
+        // חשיבות הנתונים
+        enum class DataSensitivity {
+            HIGH,   // נתונים רגישים מאוד - זהות, סיסמאות, מפתחות
+            MEDIUM, // נתונים רגישים - הגדרות אישיות, תצורת אפליקציה
+            LOW     // נתונים לא רגישים - העדפות ממשק משתמש, סטטיסטיקות שימוש
+        }
+
+        // מפתח הצפנה אפליקטיבי לגיבוי
+        private const val BACKUP_ENCRYPTION_KEY = "AdSkipperSecureEncryptionKey2025" // מפתח בסיסי - אפשר להחליף
     }
 
     // יצירת מפתח מאסטר
     private val masterKey by lazy {
         try {
-            // ניסיון ראשון עם הגדרות מומלצות
+            // ניסיון ראשון עם הגדרות מומלצות ומאובטחות יותר
             MasterKey.Builder(context)
                 .setKeyScheme(MasterKey.KeyScheme.AES256_GCM)
-                .setUserAuthenticationRequired(false)
+                .setKeyGenParameterSpec(
+                    KeyGenParameterSpec.Builder(
+                        MasterKey.DEFAULT_MASTER_KEY_ALIAS,
+                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+                    )
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setUserAuthenticationRequired(false) // אפשר לשנות ל-true עם timeout
+                        .build()
+                )
                 .build()
         } catch (e: Exception) {
             Logger.e(TAG, "Error creating MasterKey with primary scheme, trying fallback", e)
@@ -85,22 +110,126 @@ class SecurePreferences(private val context: Context) {
         return context.getSharedPreferences("encryption_warning_prefs", Context.MODE_PRIVATE)
     }
 
-    // הודעה למשתמש שההצפנה נכשלה ויוצבו הגבלות
-    private fun showEncryptionFailureNotification() {
-        // כאן תוכל להוסיף קוד להצגת הודעה למשתמש
-        Logger.e(TAG, "Using unencrypted fallback preferences with limited functionality")
+    // מימוש הצפנה פנימית (אפליקטיבית) לשימוש כגיבוי כשאין EncryptedSharedPreferences
+    private fun encryptString(input: String): String {
+        try {
+            val key = generateKey(BACKUP_ENCRYPTION_KEY)
+            val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+            val encryptedBytes = cipher.doFinal(input.toByteArray(Charsets.UTF_8))
+            return Base64.encodeToString(encryptedBytes, Base64.DEFAULT)
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error during app-level encryption", e)
+            return input // במקרה של כישלון, החזר את המחרוזת המקורית
+        }
     }
 
-    fun saveSelectedApps(apps: Set<AppInfo>) {
-        prefs.edit().apply {
-            // בדוק אם אלו העדפות מוצפנות
-            if (prefs.getBoolean(ENCRYPTED_INDICATOR, false)) {
-                putStringSet("selected_apps", apps.map { it.packageName }.toSet())
-            } else {
-                // אם לא, שמור רק מידע לא רגיש
-                putStringSet("selected_apps", apps.take(3).map { it.packageName }.toSet()) // הגבל את כמות האפליקציות
+    private fun decryptString(input: String): String {
+        try {
+            val key = generateKey(BACKUP_ENCRYPTION_KEY)
+            val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
+            cipher.init(Cipher.DECRYPT_MODE, key)
+            val decodedBytes = Base64.decode(input, Base64.DEFAULT)
+            val decryptedBytes = cipher.doFinal(decodedBytes)
+            return String(decryptedBytes, Charsets.UTF_8)
+        } catch (e: Exception) {
+            Logger.e(TAG, "Error during app-level decryption", e)
+            return input // במקרה של כישלון, החזר את המחרוזת המקורית
+        }
+    }
+
+    private fun generateKey(password: String): SecretKeySpec {
+        val digest = MessageDigest.getInstance("SHA-256")
+        val bytes = password.toByteArray(Charsets.UTF_8)
+        digest.update(bytes, 0, bytes.size)
+        val key = digest.digest()
+        return SecretKeySpec(key, "AES")
+    }
+
+    // פונקציה חדשה: שמירת ערך רגיש עם התחשבות ברמת הרגישות
+    fun putSensitiveString(key: String, value: String, sensitivity: DataSensitivity = DataSensitivity.LOW) {
+        // בדיקה אם להשתמש בהצפנה מערכתית או אפליקטיבית
+        val isUsingSystemEncryption = prefs.getBoolean(ENCRYPTED_INDICATOR, false)
+
+        when {
+            // במקרה שיש הצפנה מערכתית - השתמש בה לכל הנתונים
+            isUsingSystemEncryption -> {
+                prefs.edit().putString(key, value).apply()
             }
-            apply()
+
+            // כאשר אין הצפנה מערכתית, טפל בנתונים לפי רמת הרגישות
+            sensitivity == DataSensitivity.HIGH -> {
+                // עבור נתונים רגישים מאוד - השתמש בהצפנה אפליקטיבית
+                val encryptedValue = encryptString(value)
+                prefs.edit().putString("${key}_enc", encryptedValue).apply()
+            }
+
+            sensitivity == DataSensitivity.MEDIUM -> {
+                // עבור נתונים רגישים בינוניים - השתמש בהצפנה אפליקטיבית
+                val encryptedValue = encryptString(value)
+                prefs.edit().putString("${key}_enc", encryptedValue).apply()
+            }
+
+            else -> {
+                // עבור נתונים לא רגישים - שמור כרגיל
+                prefs.edit().putString(key, value).apply()
+            }
+        }
+    }
+
+    // פונקציה חדשה: קבלת ערך רגיש
+    fun getSensitiveString(key: String, defaultValue: String?, sensitivity: DataSensitivity = DataSensitivity.LOW): String? {
+        val isUsingSystemEncryption = prefs.getBoolean(ENCRYPTED_INDICATOR, false)
+
+        // אם יש הצפנה מערכתית, השתמש בה ישירות
+        if (isUsingSystemEncryption) {
+            return prefs.getString(key, defaultValue)
+        }
+
+        // אם אין הצפנה מערכתית, בדוק אם זהו נתון רגיש
+        return if (sensitivity == DataSensitivity.HIGH || sensitivity == DataSensitivity.MEDIUM) {
+            // נסה לקבל גרסה מוצפנת של הנתון
+            val encryptedValue = prefs.getString("${key}_enc", null)
+            if (encryptedValue != null) {
+                decryptString(encryptedValue)
+            } else {
+                defaultValue
+            }
+        } else {
+            // נתון לא רגיש - קבל ישירות
+            prefs.getString(key, defaultValue)
+        }
+    }
+
+    // שיטות קיימות עם תוספות
+
+    fun saveSelectedApps(apps: Set<AppInfo>) {
+        if (prefs.getBoolean(ENCRYPTED_INDICATOR, false)) {
+            // אם יש הצפנה מערכתית - שמור את כל האפליקציות
+            prefs.edit().putStringSet("selected_apps", apps.map { it.packageName }.toSet()).apply()
+        } else {
+            // אם אין הצפנה מערכתית - שמור רק 3 אפליקציות והצפן בהצפנה אפליקטיבית
+            val limitedApps = apps.take(3).map { it.packageName }.toSet()
+            val encryptedApps = encryptString(limitedApps.joinToString(","))
+            prefs.edit().putString("selected_apps_enc", encryptedApps).apply()
+        }
+    }
+
+    fun getSelectedAppPackages(): Set<String> {
+        if (prefs.getBoolean(ENCRYPTED_INDICATOR, false)) {
+            return prefs.getStringSet("selected_apps", emptySet()) ?: emptySet()
+        } else {
+            // נסה לקבל את רשימת האפליקציות המוצפנת
+            val encryptedApps = prefs.getString("selected_apps_enc", "")
+            return if (encryptedApps.isNullOrEmpty()) {
+                emptySet()
+            } else {
+                try {
+                    decryptString(encryptedApps).split(",").toSet()
+                } catch (e: Exception) {
+                    emptySet()
+                }
+            }
         }
     }
 
@@ -118,16 +247,12 @@ class SecurePreferences(private val context: Context) {
         getEncryptionWarningPrefs().edit().putBoolean(KEY_SHOW_ENCRYPTION_WARNING, false).apply()
     }
 
-    fun getSelectedAppPackages(): Set<String> {
-        return prefs.getStringSet("selected_apps", emptySet()) ?: emptySet()
-    }
-
     fun putString(key: String, value: String) {
-        prefs.edit().putString(key, value).apply()
+        putSensitiveString(key, value, DataSensitivity.LOW)
     }
 
     fun getString(key: String, defaultValue: String?): String? {
-        return prefs.getString(key, defaultValue)
+        return getSensitiveString(key, defaultValue, DataSensitivity.LOW)
     }
 
     // שיטה לבדיקה אם אנחנו משתמשים בהעדפות מוצפנות
@@ -160,19 +285,44 @@ class SecurePreferences(private val context: Context) {
     }
 
     fun putStringSet(key: String, values: Set<String>) {
-        prefs.edit().putStringSet(key, values).apply()
+        // בדיקה אם מדובר בנתונים רגישים לפי שם המפתח
+        val sensitive = key.contains("password") || key.contains("key") || key.contains("token")
+
+        if (prefs.getBoolean(ENCRYPTED_INDICATOR, false) || !sensitive) {
+            prefs.edit().putStringSet(key, values).apply()
+        } else {
+            // אם מדובר בנתונים רגישים והאחסון לא מוצפן, השתמש בהצפנה אפליקטיבית
+            val encryptedValue = encryptString(values.joinToString(","))
+            prefs.edit().putString("${key}_enc", encryptedValue).apply()
+        }
     }
 
     fun getStringSet(key: String, defaultValues: Set<String>): Set<String> {
-        return prefs.getStringSet(key, defaultValues) ?: defaultValues
+        val sensitive = key.contains("password") || key.contains("key") || key.contains("token")
+
+        if (prefs.getBoolean(ENCRYPTED_INDICATOR, false) || !sensitive) {
+            return prefs.getStringSet(key, defaultValues) ?: defaultValues
+        } else {
+            // אם מדובר בנתונים רגישים, נסה לפענח
+            val encryptedValue = prefs.getString("${key}_enc", null)
+            return if (encryptedValue != null) {
+                try {
+                    decryptString(encryptedValue).split(",").toSet()
+                } catch (e: Exception) {
+                    defaultValues
+                }
+            } else {
+                defaultValues
+            }
+        }
     }
 
     fun contains(key: String): Boolean {
-        return prefs.contains(key)
+        return prefs.contains(key) || prefs.contains("${key}_enc")
     }
 
     fun remove(key: String) {
-        prefs.edit().remove(key).apply()
+        prefs.edit().remove(key).remove("${key}_enc").apply()
     }
 
     // במקרה שצריך לאפס את כל ההעדפות

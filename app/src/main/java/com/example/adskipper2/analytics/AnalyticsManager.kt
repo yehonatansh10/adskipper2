@@ -114,7 +114,7 @@ class AnalyticsManager private constructor(private val context: Context) {
 
         securePrefs.putLong(KEY_LAST_LAUNCH, currentTime)
         securePrefs.putInt(KEY_LAUNCH_COUNT, launchCount)
-        securePrefs.putString(KEY_APP_VERSION, appVersion)
+        securePrefs.putSensitiveString(KEY_APP_VERSION, appVersion)
 
         // תיעוד הפעלה עם מידע על המכשיר (מידע לא מזהה)
         val deviceInfo = mapOf(
@@ -212,7 +212,7 @@ class AnalyticsManager private constructor(private val context: Context) {
     private fun saveEvents() {
         try {
             val eventsJson = gson.toJson(eventsMap)
-            securePrefs.putString(KEY_EVENTS, eventsJson)
+            securePrefs.putSensitiveString(KEY_EVENTS, eventsJson)
         } catch (e: Exception) {
             Logger.e(TAG, "Error saving events", e)
         }
