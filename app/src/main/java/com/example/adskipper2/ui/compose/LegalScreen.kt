@@ -27,7 +27,8 @@ fun LegalScreen(
 
     // האם המסמך בעברית
     val isHebrew = documentType == LegalDocumentType.PRIVACY_POLICY_HEBREW ||
-            documentType == LegalDocumentType.TERMS_OF_SERVICE_HEBREW
+            documentType == LegalDocumentType.TERMS_OF_SERVICE_HEBREW ||
+            documentType == LegalDocumentType.SUPPORT_HEBREW
 
     // כותרת המסמך
     val title = when (documentType) {
@@ -38,6 +39,10 @@ fun LegalScreen(
         LegalDocumentType.TERMS_OF_SERVICE_HEBREW,
         LegalDocumentType.TERMS_OF_SERVICE_ENGLISH ->
             if (isHebrew) stringResource(R.string.terms_of_service) else "Terms of Service"
+
+        LegalDocumentType.SUPPORT_HEBREW,
+        LegalDocumentType.SUPPORT_ENGLISH ->
+            if (isHebrew) stringResource(R.string.support) else "Support"
     }
 
     // החלפת שפה
@@ -47,6 +52,8 @@ fun LegalScreen(
             LegalDocumentType.PRIVACY_POLICY_ENGLISH -> LegalDocumentType.PRIVACY_POLICY_HEBREW
             LegalDocumentType.TERMS_OF_SERVICE_HEBREW -> LegalDocumentType.TERMS_OF_SERVICE_ENGLISH
             LegalDocumentType.TERMS_OF_SERVICE_ENGLISH -> LegalDocumentType.TERMS_OF_SERVICE_HEBREW
+            LegalDocumentType.SUPPORT_HEBREW -> LegalDocumentType.SUPPORT_ENGLISH
+            LegalDocumentType.SUPPORT_ENGLISH -> LegalDocumentType.SUPPORT_HEBREW
         }
     }
 

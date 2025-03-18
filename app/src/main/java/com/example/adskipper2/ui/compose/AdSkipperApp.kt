@@ -46,6 +46,7 @@ fun AdSkipperApp(
     onStartRecording: () -> Unit,
     onStopRecording: () -> Unit,
     onOpenPrivacyPolicy: () -> Unit,
+    onOpenSupport: () -> Unit,
     onOpenTermsOfService: () -> Unit
 ) {
     Box(
@@ -131,6 +132,15 @@ fun AdSkipperApp(
                 )
             ) {
                 Text("Terms of Use", fontSize = 12.sp)
+            }
+
+            TextButton(
+                onClick = onOpenSupport,
+                colors = ButtonDefaults.textButtonColors(
+                    contentColor = Color.LightGray
+                )
+            ) {
+                Text("Support", fontSize = 12.sp)
             }
         }
     }

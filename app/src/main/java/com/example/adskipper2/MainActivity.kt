@@ -289,6 +289,10 @@ class MainActivity : ComponentActivity() {
                             onOpenTermsOfService = {
                                 currentLegalDocument.value = LegalDocumentType.getTermsOfService(isHebrew)
                                 showLegalScreen.value = true
+                            },
+                            onOpenSupport = {
+                                currentLegalDocument.value = LegalDocumentType.getSupport(isHebrew)
+                                showLegalScreen.value = true
                             }
                         )
 

@@ -10,7 +10,11 @@ enum class LegalDocumentType(val fileName: String) {
 
     // תנאי שימוש
     TERMS_OF_SERVICE_HEBREW("terms_of_service_he.html"),
-    TERMS_OF_SERVICE_ENGLISH("terms_of_service_en.html");
+    TERMS_OF_SERVICE_ENGLISH("terms_of_service_en.html"),
+
+    // תמיכה
+    SUPPORT_HEBREW("support_he.html"),
+    SUPPORT_ENGLISH("support_en.html");
 
     companion object {
         fun getPrivacyPolicy(isHebrew: Boolean = true): LegalDocumentType {
@@ -19,6 +23,10 @@ enum class LegalDocumentType(val fileName: String) {
 
         fun getTermsOfService(isHebrew: Boolean = true): LegalDocumentType {
             return if (isHebrew) TERMS_OF_SERVICE_HEBREW else TERMS_OF_SERVICE_ENGLISH
+        }
+
+        fun getSupport(isHebrew: Boolean = true): LegalDocumentType {
+            return if (isHebrew) SUPPORT_HEBREW else SUPPORT_ENGLISH
         }
     }
 }
