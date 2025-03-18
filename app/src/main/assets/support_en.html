@@ -43,6 +43,44 @@
 <h2>Troubleshooting Tips</h2>
 <p>If the app suddenly stops working correctly, try resetting the accessibility permissions. Go to your device Settings > Accessibility > AdSkipper, disable the service, then enable it again. This often resolves issues caused by system updates or resource constraints.</p>
 
+<h2>Required Permissions Explained</h2>
+
+<h3>Accessibility Service</h3>
+<p>The accessibility service permission is the core of AdSkipper's functionality. It allows the app to:</p>
+<ul>
+    <li>Detect when ads appear on your screen</li>
+    <li>Identify specific ad elements by scanning text content</li>
+    <li>Perform automated actions (like scrolling) to skip past ads</li>
+</ul>
+<p>Without this permission, the app cannot detect or skip ads automatically. We strictly limit our use of this permission to the ad detection and skipping functions. AdSkipper does not collect, store, or transmit any screen content, and all processing happens locally on your device.</p>
+
+<h3>Display Over Other Apps (System Alert Window)</h3>
+<p>This permission allows AdSkipper to:</p>
+<ul>
+    <li>Draw interface elements on top of other apps when needed</li>
+    <li>Perform skip actions while you're using social media apps</li>
+    <li>Show visual feedback when an ad is detected and skipped</li>
+</ul>
+<p>Without this permission, the app cannot perform automated scrolling or tapping actions needed to skip ads in other applications.</p>
+
+<h3>Foreground Service</h3>
+<p>The foreground service permission enables AdSkipper to:</p>
+<ul>
+    <li>Run in the background while you use other apps</li>
+    <li>Continue monitoring for ads even when AdSkipper is not in focus</li>
+    <li>Operate efficiently with minimal battery impact</li>
+</ul>
+<p>This permission is essential for the app to function properly, as it needs to be active while you're using social media apps where ads appear.</p>
+
+<h3>Notification Permission</h3>
+<p>This permission allows AdSkipper to:</p>
+<ul>
+    <li>Show a persistent notification when the service is active</li>
+    <li>Provide quick controls to pause or resume the service</li>
+    <li>Display status information about the ad-skipping service</li>
+</ul>
+<p>Android requires apps with foreground services to display a notification so you know they're running. This notification also helps you quickly control the app's status.</p>
+
 <h2>Contact Us</h2>
 <p>If you're experiencing issues or have suggestions for improvement, please contact us at: adskipper2@gmail.com</p>
 </body>
