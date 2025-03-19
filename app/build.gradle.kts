@@ -23,12 +23,6 @@ android {
     }
 
     buildTypes {
-        debug {
-            buildConfigField("Boolean", "DEBUG", "true")
-            buildConfigField("String", "API_ENDPOINT", "\"https://dev-api.example.com\"")
-            buildConfigField("Boolean", "ANALYTICS_ENABLED", "false")
-            isMinifyEnabled = false
-        }
         release {
             buildConfigField("Boolean", "DEBUG", "false")
             // Pre-computed Base64 string
@@ -40,9 +34,14 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+            signingConfig = signingConfigs.getByName("debug")
             matchingFallbacks += listOf("release")
         }
+
         debug {
+            buildConfigField("Boolean", "DEBUG", "true")
+            buildConfigField("String", "API_ENDPOINT", "\"https://dev-api.example.com\"")
+            buildConfigField("Boolean", "ANALYTICS_ENABLED", "false")
             isMinifyEnabled = false
         }
     }
@@ -91,25 +90,22 @@ dependencies {
     // Accessibility Services
     implementation(libs.window)
 
-    // הוספת ספריית אבטחה
+    // Security
     implementation("androidx.security:security-crypto:1.1.0-alpha06")
 
-    // ספריית Gson לסריאליזציה של נתונים
+    // Gson
     implementation("com.google.code.gson:gson:2.10.1")
 
     // Testing
     testImplementation(libs.junit.core)
-    testImplementation(libs.junit.core)
     testImplementation("org.mockito:mockito-core:5.2.0")
     testImplementation("org.mockito:mockito-inline:5.2.0")
     testImplementation("org.mockito.kotlin:mockito-kotlin:5.1.0")
+
     androidTestImplementation(libs.junit.android)
     androidTestImplementation(libs.espresso)
     androidTestImplementation(libs.compose.ui.test.junit4)
-    androidTestImplementation(libs.junit.android)
-    androidTestImplementation(libs.espresso)
     androidTestImplementation(platform(libs.compose.bom))
-    androidTestImplementation("androidx.compose.ui:ui-test-junit4")
 
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)

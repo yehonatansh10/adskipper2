@@ -1,23 +1,39 @@
-# שמירה על מידע של שורות קוד לדיבוג
+# שמירה על מאפיינים של קוד מקור לדיבוג
 -keepattributes SourceFile,LineNumberTable
 -renamesourcefileattribute SourceFile
 
-# כללים עבור Compose
--keep class androidx.compose.** { *; }
--dontwarn androidx.compose.**
--keep class androidx.lifecycle.** { *; }
--keep class androidx.activity.** { *; }
+# כללים כלליים
+-keepattributes *Annotation*,Signature,InnerClasses
 
-# כללים עבור MLKit
+# הגנה על Kotlin
+-keep class kotlin.** { *; }
+-keep class kotlin.Metadata { *; }
+-dontwarn kotlin.**
+
+# שמירה על מחלקות מרכזיות
+-keep class com.example.adskipper2.** { *; }
+-keepclassmembers class com.example.adskipper2.** { *; }
+
+# Android core
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Service
+-keep public class * extends android.accessibilityservice.AccessibilityService
+
+# Androidx
+-keep class androidx.** { *; }
+-keepclassmembers class androidx.** { *; }
+-dontwarn androidx.**
+
+# MLKit
 -keep class com.google.mlkit.** { *; }
--keep class com.google.android.gms.vision.** { *; }
+-keep class com.google.android.gms.** { *; }
 -dontwarn com.google.mlkit.**
 
-# שמירה על מודלים של MLKit
--keep class com.google.mlkit.vision.text.** { *; }
--keep class com.google.mlkit.vision.label.** { *; }
+# Compose
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
 
-# כללים כלליים לאנדרואיד
+# Serialization
 -keepclassmembers class * implements android.os.Parcelable {
     public static final ** CREATOR;
 }
@@ -30,7 +46,7 @@
     java.lang.Object readResolve();
 }
 
-# הסרת מידע ניפוי שגיאות
+# הסרת לוגים
 -assumenosideeffects class android.util.Log {
     public static *** d(...);
     public static *** v(...);
@@ -39,87 +55,8 @@
     public static *** e(...);
 }
 
-# הגנה על מידע רגיש (מפתחות הצפנה)
--keeppackagenames com.example.adskipper2.storage.**
--keepclassmembers class com.example.adskipper2.storage.** {
-    private <methods>;
-}
--keep class com.example.adskipper2.storage.SecurePreferences {
-    public <methods>;
-}
--keepclassmembers class com.example.adskipper2.storage.** {
-    private static final java.lang.String *;
-}
-
-# הגנה על Kotlin
--keep class kotlin.** { *; }
--keep class kotlin.Metadata { *; }
--dontwarn kotlin.**
--keepclassmembers class kotlin.Metadata {
-    public <methods>;
-}
-
-# כללים עבור Accessibility Service
--keep class * extends android.accessibilityservice.AccessibilityService
--keepclassmembers class * extends android.accessibilityservice.AccessibilityService {
-    public <methods>;
-}
-
 # שמירה על BuildConfig
 -keep class **.BuildConfig { *; }
 
-# שמירה על מודלים וקלאסים חשובים
--keep class com.example.adskipper2.** { *; }
-
-# שמירה על קוד של ספריות חיצוניות חשובות
--keep class androidx.compose.** { *; }
--keep class com.google.mlkit.** { *; }
-
-# שמירה על מידע שורות קוד לדיבוג
--keepattributes SourceFile,LineNumberTable
-
-# הגנה על קבצי נכסים חשובים
+# הגנה על נכסים
 -keep assets/default_keywords.json
-
-# General ProGuard rules
--keepattributes *Annotation*
--keepattributes Signature
--keepattributes InnerClasses
-
-# Kotlin specific rules
--keep class kotlin.** { *; }
--keep class kotlin.Metadata { *; }
--dontwarn kotlin.**
--keepclassmembers class kotlin.Metadata {
-    public <methods>;
-}
-
-# Android components
--keep public class * extends android.app.Activity
--keep public class * extends android.app.Service
--keep public class * extends android.content.BroadcastReceiver
--keep public class * extends android.content.ContentProvider
-
-# Accessibility Service
--keep class * extends android.accessibilityservice.AccessibilityService {
-    public <methods>;
-}
-
-# Androidx libraries
--keep class androidx.** { *; }
--keep interface androidx.** { *; }
--dontwarn androidx.**
-
-# MLKit
--keep class com.google.mlkit.** { *; }
--dontwarn com.google.mlkit.**
-
-# Compose
--keep class androidx.compose.** { *; }
--dontwarn androidx.compose.**
-
-# Application specific classes
--keep class com.example.adskipper2.** { *; }
-
-# Keep BuildConfig
--keep class **.BuildConfig { *; }
