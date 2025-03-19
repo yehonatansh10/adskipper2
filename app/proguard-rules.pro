@@ -7,12 +7,10 @@
 
 # הגנה על Kotlin
 -keep class kotlin.** { *; }
--keep class kotlin.Metadata { *; }
 -dontwarn kotlin.**
 
 # שמירה על מחלקות מרכזיות
 -keep class com.example.adskipper2.** { *; }
--keepclassmembers class com.example.adskipper2.** { *; }
 
 # Android core
 -keep public class * extends android.app.Activity
@@ -21,12 +19,10 @@
 
 # Androidx
 -keep class androidx.** { *; }
--keepclassmembers class androidx.** { *; }
 -dontwarn androidx.**
 
 # MLKit
 -keep class com.google.mlkit.** { *; }
--keep class com.google.android.gms.** { *; }
 -dontwarn com.google.mlkit.**
 
 # Compose
@@ -57,6 +53,3 @@
 
 # שמירה על BuildConfig
 -keep class **.BuildConfig { *; }
-
-# הגנה על נכסים
--keep assets/default_keywords.json
