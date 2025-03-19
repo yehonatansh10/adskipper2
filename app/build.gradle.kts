@@ -4,9 +4,38 @@ plugins {
     id("org.jetbrains.kotlin.android")
 }
 
+// חיפוש בקובץ Properties
+val keystorePropertiesFile = rootProject.file("keystore.properties")
+val keystoreProperties = project.loadProperties(keystorePropertiesFile)
+
+// פונקציית עזר לטעינת קובץ properties
+fun Project.loadProperties(propertiesFile: File): Map<String, String> {
+    val properties = mutableMapOf<String, String>()
+    if (propertiesFile.exists()) {
+        propertiesFile.readLines().forEach { line ->
+            if (!line.startsWith("#") && line.contains("=")) {
+                val split = line.split("=", limit = 2)
+                properties[split[0].trim()] = split[1].trim()
+            }
+        }
+    }
+    return properties
+}
+
 android {
     namespace = "com.example.adskipper2"
     compileSdk = 34
+
+    signingConfigs {
+        create("release") {
+            if (keystorePropertiesFile.exists()) {
+                storeFile = file(keystoreProperties["storeFile"] ?: "")
+                storePassword = keystoreProperties["storePassword"] ?: ""
+                keyAlias = keystoreProperties["keyAlias"] ?: ""
+                keyPassword = keystoreProperties["keyPassword"] ?: ""
+            }
+        }
+    }
 
     defaultConfig {
         applicationId = "com.example.adskipper2"
@@ -25,7 +54,7 @@ android {
     buildTypes {
         release {
             buildConfigField("Boolean", "DEBUG", "false")
-            // Pre-computed Base64 string
+            // Updated API endpoint - using Base64 encoded value
             buildConfigField("String", "API_ENDPOINT", "\"aHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20=\"")
             buildConfigField("Boolean", "ANALYTICS_ENABLED", "true")
             isMinifyEnabled = true
@@ -34,7 +63,11 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = if (keystorePropertiesFile.exists()) {
+                signingConfigs.getByName("release")
+            } else {
+                signingConfigs.getByName("debug") // Fallback to debug for development
+            }
             matchingFallbacks += listOf("release")
         }
 
