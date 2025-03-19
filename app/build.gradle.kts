@@ -40,7 +40,10 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-            matchingFallbacks += listOf("release", "debug")
+            matchingFallbacks += listOf("release")
+        }
+        debug {
+            isMinifyEnabled = false
         }
     }
 

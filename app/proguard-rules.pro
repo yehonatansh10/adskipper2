@@ -80,3 +80,46 @@
 
 # הגנה על קבצי נכסים חשובים
 -keep assets/default_keywords.json
+
+# General ProGuard rules
+-keepattributes *Annotation*
+-keepattributes Signature
+-keepattributes InnerClasses
+
+# Kotlin specific rules
+-keep class kotlin.** { *; }
+-keep class kotlin.Metadata { *; }
+-dontwarn kotlin.**
+-keepclassmembers class kotlin.Metadata {
+    public <methods>;
+}
+
+# Android components
+-keep public class * extends android.app.Activity
+-keep public class * extends android.app.Service
+-keep public class * extends android.content.BroadcastReceiver
+-keep public class * extends android.content.ContentProvider
+
+# Accessibility Service
+-keep class * extends android.accessibilityservice.AccessibilityService {
+    public <methods>;
+}
+
+# Androidx libraries
+-keep class androidx.** { *; }
+-keep interface androidx.** { *; }
+-dontwarn androidx.**
+
+# MLKit
+-keep class com.google.mlkit.** { *; }
+-dontwarn com.google.mlkit.**
+
+# Compose
+-keep class androidx.compose.** { *; }
+-dontwarn androidx.compose.**
+
+# Application specific classes
+-keep class com.example.adskipper2.** { *; }
+
+# Keep BuildConfig
+-keep class **.BuildConfig { *; }
