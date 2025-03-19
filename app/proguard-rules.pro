@@ -40,7 +40,13 @@
 }
 
 # הגנה על מידע רגיש (מפתחות הצפנה)
--keep class com.example.adskipper2.storage.** { *; }
+-keeppackagenames com.example.adskipper2.storage.**
+-keepclassmembers class com.example.adskipper2.storage.** {
+    private <methods>;
+}
+-keep class com.example.adskipper2.storage.SecurePreferences {
+    public <methods>;
+}
 -keepclassmembers class com.example.adskipper2.storage.** {
     private static final java.lang.String *;
 }

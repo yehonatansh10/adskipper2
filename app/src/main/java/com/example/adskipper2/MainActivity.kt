@@ -367,7 +367,11 @@ class MainActivity : ComponentActivity() {
             ServiceState.getInstance(this).setEnabled(true)
             isServiceRunning.value = true
 
-            Toast.makeText(this, "Skip service started successfully", Toast.LENGTH_SHORT).show()
+            if (BuildConfig.DEBUG) {
+                Toast.makeText(this, "Skip service started successfully", Toast.LENGTH_SHORT).show()
+            } else {
+                Toast.makeText(this, getString(R.string.service_started), Toast.LENGTH_SHORT).show()
+            }
         } catch (e: Exception) {
             errorHandler.handleError(TAG, e)
         }

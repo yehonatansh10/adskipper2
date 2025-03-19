@@ -14,6 +14,10 @@ import java.io.IOException
 import javax.crypto.Cipher
 import javax.crypto.spec.SecretKeySpec
 import android.util.Base64
+import java.security.KeyStore
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import android.provider.Settings
 
 class SecurePreferences(private val context: Context) {
     companion object {
@@ -29,9 +33,6 @@ class SecurePreferences(private val context: Context) {
             MEDIUM, // נתונים רגישים - הגדרות אישיות, תצורת אפליקציה
             LOW     // נתונים לא רגישים - העדפות ממשק משתמש, סטטיסטיקות שימוש
         }
-
-        // מפתח הצפנה אפליקטיבי לגיבוי
-        private const val BACKUP_ENCRYPTION_KEY = "AdSkipperSecureEncryptionKey2025" // מפתח בסיסי - אפשר להחליף
     }
 
     // יצירת מפתח מאסטר
@@ -67,6 +68,41 @@ class SecurePreferences(private val context: Context) {
 
     private val prefs: SharedPreferences by lazy {
         initializePreferences()
+    }
+
+    private fun getOrCreateEncryptionKey(): SecretKey {
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore")
+            keyStore.load(null)
+
+            // Check if key exists
+            if (keyStore.containsAlias("AdSkipperSecretKey")) {
+                return (keyStore.getEntry("AdSkipperSecretKey", null) as KeyStore.SecretKeyEntry).secretKey
+            }
+
+            // Generate a new key if it doesn't exist
+            val keyGenerator = KeyGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            keyGenerator.init(
+                KeyGenParameterSpec.Builder("AdSkipperSecretKey",
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                    .setUserAuthenticationRequired(false)
+                    .build()
+            )
+            return keyGenerator.generateKey()
+        } catch (e: Exception) {
+            // Fallback to a derived key if keystore fails
+            Logger.e("SecurePrefs", "Keystore failed, using fallback", e)
+            val digest = MessageDigest.getInstance("SHA-256")
+            val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+            val salt = context.packageName
+            val bytes = (deviceId + salt).toByteArray(Charsets.UTF_8)
+            digest.update(bytes, 0, bytes.size)
+            val key = digest.digest()
+            return SecretKeySpec(key, "AES")
+        }
     }
 
     private fun initializePreferences(): SharedPreferences {
@@ -113,7 +149,8 @@ class SecurePreferences(private val context: Context) {
     // מימוש הצפנה פנימית (אפליקטיבית) לשימוש כגיבוי כשאין EncryptedSharedPreferences
     private fun encryptString(input: String): String {
         try {
-            val key = generateKey(BACKUP_ENCRYPTION_KEY)
+            // Use the secure key instead of the hardcoded backup key
+            val key = generateKey()
             val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
             cipher.init(Cipher.ENCRYPT_MODE, key)
             val encryptedBytes = cipher.doFinal(input.toByteArray(Charsets.UTF_8))
@@ -126,7 +163,8 @@ class SecurePreferences(private val context: Context) {
 
     private fun decryptString(input: String): String {
         try {
-            val key = generateKey(BACKUP_ENCRYPTION_KEY)
+            // Use the secure key instead of the hardcoded backup key
+            val key = generateKey()
             val cipher = Cipher.getInstance("AES/ECB/PKCS5Padding")
             cipher.init(Cipher.DECRYPT_MODE, key)
             val decodedBytes = Base64.decode(input, Base64.DEFAULT)
@@ -138,12 +176,28 @@ class SecurePreferences(private val context: Context) {
         }
     }
 
-    private fun generateKey(password: String): SecretKeySpec {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val bytes = password.toByteArray(Charsets.UTF_8)
-        digest.update(bytes, 0, bytes.size)
-        val key = digest.digest()
-        return SecretKeySpec(key, "AES")
+    private fun generateKey(): SecretKeySpec {
+        try {
+            // Try to use the secure key from Android Keystore
+            val secretKey = getOrCreateEncryptionKey()
+            if (secretKey is SecretKeySpec) {
+                return secretKey
+            }
+
+            // If it's not a SecretKeySpec, convert it
+            val keyBytes = secretKey.encoded
+            return SecretKeySpec(keyBytes, "AES")
+        } catch (e: Exception) {
+            // Fallback to a derived key
+            Logger.e(TAG, "Error generating key, using device-specific fallback", e)
+            val digest = MessageDigest.getInstance("SHA-256")
+            val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+            val salt = context.packageName
+            val bytes = (deviceId + salt).toByteArray(Charsets.UTF_8)
+            digest.update(bytes, 0, bytes.size)
+            val key = digest.digest()
+            return SecretKeySpec(key, "AES")
+        }
     }
 
     // פונקציה חדשה: שמירת ערך רגיש עם התחשבות ברמת הרגישות

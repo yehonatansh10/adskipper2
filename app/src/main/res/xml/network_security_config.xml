@@ -5,17 +5,4 @@
             <certificates src="system" />
         </trust-anchors>
     </base-config>
-
-    <!-- אם יש שרתים ספציפיים, נוסיף אותם כ: -->
-    <!--
-    <domain-config cleartextTrafficPermitted="false">
-        <domain includeSubdomains="true">example.com</domain>
-        <trust-anchors>
-            <certificates src="system" />
-        </trust-anchors>
-        <pin-set expiration="2025-01-01">
-            <pin digest="SHA-256">YOUR_PIN_HERE</pin>
-        </pin-set>
-    </domain-config>
-    -->
 </network-security-config>

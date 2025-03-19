@@ -31,7 +31,8 @@ android {
         }
         release {
             buildConfigField("Boolean", "DEBUG", "false")
-            buildConfigField("String", "API_ENDPOINT", "\"https://api.example.com\"")
+            // Pre-computed Base64 string
+            buildConfigField("String", "API_ENDPOINT", "\"aHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20=\"")
             buildConfigField("Boolean", "ANALYTICS_ENABLED", "true")
             isMinifyEnabled = true
             isShrinkResources = true
@@ -39,34 +40,26 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
-
             matchingFallbacks += listOf("release", "debug")
-
-            aaptOptions {
-                noCompress += listOf("html", "json")  // אלה פורמטים שצריך לשמור
-            }
         }
     }
+
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
     }
+
     kotlinOptions {
         jvmTarget = "17"
     }
+
     buildFeatures {
         buildConfig = true
         compose = true
     }
+
     composeOptions {
         kotlinCompilerExtensionVersion = libs.versions.compose.compiler.get()
-    }
-    packaging {
-        resources {
-            excludes += "/.idea/**"
-            excludes += "/.git/**"
-            excludes += "/META-INF/{AL2.0,LGPL2.1}"
-        }
     }
 }
 

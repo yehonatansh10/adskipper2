@@ -13,10 +13,17 @@ import javax.crypto.spec.IvParameterSpec
 import javax.crypto.spec.SecretKeySpec
 import android.util.Base64
 import java.security.MessageDigest
+import java.security.KeyStore
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
+import android.provider.Settings
 
 class EncryptedLogger(private val context: Context) {
 
     companion object {
+        private const val TAG = "EncryptedLogger"
         private const val LOG_FOLDER = "encrypted_logs"
         private const val LOG_FILE_NAME = "app_log.enc"
         private const val FALLBACK_LOG_FILE = "app_log_fallback.txt"
@@ -132,11 +139,52 @@ class EncryptedLogger(private val context: Context) {
     }
 
     private fun generateKey(password: String): SecretKeySpec {
-        val digest = MessageDigest.getInstance("SHA-256")
-        val bytes = password.toByteArray(Charsets.UTF_8)
-        digest.update(bytes, 0, bytes.size)
-        val key = digest.digest()
-        return SecretKeySpec(key, "AES")
+        try {
+            // Try to use Android Keystore first
+            return getOrCreateEncryptionKey() as SecretKeySpec
+        } catch (e: Exception) {
+            // Fallback to password-based key derivation
+            val digest = MessageDigest.getInstance("SHA-256")
+            val bytes = password.toByteArray(Charsets.UTF_8)
+            digest.update(bytes, 0, bytes.size)
+            val key = digest.digest()
+            return SecretKeySpec(key, "AES")
+        }
+    }
+
+    private fun getOrCreateEncryptionKey(): SecretKey {
+        try {
+            val keyStore = KeyStore.getInstance("AndroidKeyStore")
+            keyStore.load(null)
+
+            // Check if key exists
+            if (keyStore.containsAlias("AdSkipperLoggerKey")) {
+                return (keyStore.getEntry("AdSkipperLoggerKey", null) as KeyStore.SecretKeyEntry).secretKey
+            }
+
+            // Generate a new key if it doesn't exist
+            val keyGenerator = KeyGenerator.getInstance(
+                KeyProperties.KEY_ALGORITHM_AES, "AndroidKeyStore")
+            keyGenerator.init(
+                KeyGenParameterSpec.Builder("AdSkipperLoggerKey",
+                    KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT)
+                    .setBlockModes(KeyProperties.BLOCK_MODE_CBC)
+                    .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_PKCS7)
+                    .setUserAuthenticationRequired(false)
+                    .build()
+            )
+            return keyGenerator.generateKey()
+        } catch (e: Exception) {
+            // Fallback to a derived key if keystore fails
+            Logger.e(TAG, "Keystore failed for logger, using fallback", e)
+            val digest = MessageDigest.getInstance("SHA-256")
+            val deviceId = Settings.Secure.getString(context.contentResolver, Settings.Secure.ANDROID_ID)
+            val salt = context.packageName + "logger"
+            val bytes = (deviceId + salt).toByteArray(Charsets.UTF_8)
+            digest.update(bytes, 0, bytes.size)
+            val key = digest.digest()
+            return SecretKeySpec(key, "AES")
+        }
     }
 
     // סינון מידע רגיש בלוגים

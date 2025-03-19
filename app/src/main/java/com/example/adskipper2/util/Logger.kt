@@ -36,15 +36,15 @@ object Logger {
 
     // טיפול בהודעות ארוכות ורגישות
     fun d(tag: String, message: String) {
-        val safeMessage = truncateAndSanitize(message)
-
         if (BuildConfig.DEBUG) {
+            // Only log in debug builds
+            val safeMessage = truncateAndSanitize(message)
             Log.d("$TAG_PREFIX$tag", safeMessage)
         }
 
-        // שמירת כל הלוגים גם במאגר מאובטח בנוסף
+        // But always log to secure storage if enabled
         if (securityLogs) {
-            encryptedLogger?.logEvent(tag, safeMessage, false)
+            encryptedLogger?.logEvent(tag, truncateAndSanitize(message), false)
         }
     }
 
