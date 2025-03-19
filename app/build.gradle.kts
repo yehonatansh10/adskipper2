@@ -25,16 +25,26 @@ android {
     buildTypes {
         debug {
             buildConfigField("Boolean", "DEBUG", "true")
+            buildConfigField("String", "API_ENDPOINT", "\"https://dev-api.example.com\"")
+            buildConfigField("Boolean", "ANALYTICS_ENABLED", "false")
             isMinifyEnabled = false
         }
         release {
             buildConfigField("Boolean", "DEBUG", "false")
+            buildConfigField("String", "API_ENDPOINT", "\"https://api.example.com\"")
+            buildConfigField("Boolean", "ANALYTICS_ENABLED", "true")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            matchingFallbacks += listOf("release", "debug")
+
+            aaptOptions {
+                noCompress += listOf("html", "json")  // אלה פורמטים שצריך לשמור
+            }
         }
     }
     compileOptions {
@@ -53,6 +63,8 @@ android {
     }
     packaging {
         resources {
+            excludes += "/.idea/**"
+            excludes += "/.git/**"
             excludes += "/META-INF/{AL2.0,LGPL2.1}"
         }
     }

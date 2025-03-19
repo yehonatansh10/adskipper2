@@ -30,19 +30,25 @@
     java.lang.Object readResolve();
 }
 
-# שמירה על Enums
--keepclassmembers enum * {
-    public static **[] values();
-    public static ** valueOf(java.lang.String);
+# הסרת מידע ניפוי שגיאות
+-assumenosideeffects class android.util.Log {
+    public static *** d(...);
+    public static *** v(...);
+    public static *** i(...);
+    public static *** w(...);
+    public static *** e(...);
+}
+
+# הגנה על מידע רגיש (מפתחות הצפנה)
+-keep class com.example.adskipper2.storage.** { *; }
+-keepclassmembers class com.example.adskipper2.storage.** {
+    private static final java.lang.String *;
 }
 
 # הגנה על Kotlin
 -keep class kotlin.** { *; }
 -keep class kotlin.Metadata { *; }
 -dontwarn kotlin.**
--keepclassmembers class **$WhenMappings {
-    <fields>;
-}
 -keepclassmembers class kotlin.Metadata {
     public <methods>;
 }
@@ -63,9 +69,8 @@
 -keep class androidx.compose.** { *; }
 -keep class com.google.mlkit.** { *; }
 
-# הגנה על Kotlin
--keep class kotlin.** { *; }
--keep class kotlin.Metadata { *; }
-
 # שמירה על מידע שורות קוד לדיבוג
 -keepattributes SourceFile,LineNumberTable
+
+# הגנה על קבצי נכסים חשובים
+-keep assets/default_keywords.json
