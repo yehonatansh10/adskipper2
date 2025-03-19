@@ -23,7 +23,7 @@ fun Project.loadProperties(propertiesFile: File): Map<String, String> {
 }
 
 android {
-    namespace = "com.example.adskipper2"
+    namespace = "com.yonash.adskipper2"
     compileSdk = 34
 
     signingConfigs {
@@ -38,7 +38,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "com.example.adskipper2"
+        applicationId = "com.yonash.adskipper2"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

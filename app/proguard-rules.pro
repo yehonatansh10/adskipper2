@@ -10,7 +10,7 @@
 -dontwarn kotlin.**
 
 # שמירה על מחלקות מרכזיות
--keep class com.example.adskipper2.** { *; }
+-keep class com.yonash.adskipper2.** { *; }
 
 # Android core
 -keep public class * extends android.app.Activity
