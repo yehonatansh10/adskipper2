@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="accessibility_disclosure_title">גילוי נאות בנושא שירותי נגישות</string>
+    <string name="accessibility_disclosure_content">AdSkipper צריך גישה לשירותי הנגישות כדי לזהות פרסומות במסך שלך ולדלג עליהן באופן אוטומטי. זה מאפשר לאפליקציה:\n\n• לראות את תוכן המסך כדי לזהות אלמנטים של פרסומות\n• לבצע פעולות גלילה כדי לדלג על פרסומות\n• לעבוד באופן אוטומטי ברקע\n\nכל עיבוד הנתונים מתבצע מקומית במכשיר שלך. תוכן המסך או מידע אישי אינו נאסף, מאוחסן או מועבר לשרתים חיצוניים כלשהם.</string>
+    <string name="i_understand_and_agree">אני מבין/ה ומסכים/ה</string>
+</resources>

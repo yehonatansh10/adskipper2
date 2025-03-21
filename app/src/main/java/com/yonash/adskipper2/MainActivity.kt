@@ -45,6 +45,7 @@ import android.view.accessibility.AccessibilityManager
 import android.content.Context
 import com.yonash.adskipper2.storage.SecurePreferences
 import androidx.appcompat.app.AlertDialog
+import com.yonash.adskipper2.ui.compose.AccessibilityDisclosureDialog
 
 data class AppInfo(val name: String, val packageName: String)
 
@@ -74,6 +75,7 @@ class MainActivity : ComponentActivity() {
     private val availableApps = mutableStateOf(listOf<AppInfo>())
     private val isRecording = mutableStateOf(false)
     private var recordedActions: List<GestureAction> = emptyList()
+    private var showAccessibilityDisclosureDialog = mutableStateOf(false)
 
     companion object {
         private const val TAG = "MainActivity"
@@ -314,6 +316,20 @@ class MainActivity : ComponentActivity() {
                                 }
                             )
                         }
+
+                        if (showAccessibilityDisclosureDialog.value) {
+                            AccessibilityDisclosureDialog(
+                                isHebrew = resources.configuration.locales[0].language == "he" ||
+                                        resources.configuration.locales[0].language == "iw",
+                                onDismiss = {
+                                    showAccessibilityDisclosureDialog.value = false
+                                },
+                                onAccept = {
+                                    showAccessibilityDisclosureDialog.value = false
+                                    proceedToAccessibilitySettings()
+                                }
+                            )
+                        }
                     }
                 }
             }
@@ -394,7 +410,19 @@ class MainActivity : ComponentActivity() {
 
     private fun requestAccessibilityPermission() {
         try {
-            // מעבר ישיר להגדרות הנגישות ללא הצגת דיאלוג
+            // Show disclosure dialog first before navigating to settings
+            showAccessibilityDisclosureDialog.value = true
+
+            // Navigation to settings will happen in proceedToAccessibilitySettings()
+            // after user accepts the disclosure
+        } catch (e: Exception) {
+            Logger.e(TAG, "Failed to show accessibility disclosure", e)
+            Toast.makeText(this, R.string.settings_open_error, Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun proceedToAccessibilitySettings() {
+        try {
             val intent = Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             startActivity(intent)

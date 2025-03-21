@@ -71,4 +71,8 @@
     <string name="support">תמיכה</string> <!-- Hebrew translation -->
 
     <string name="service_started">Service activated</string>
+
+    <string name="accessibility_disclosure_title">Accessibility Service Disclosure</string>
+    <string name="accessibility_disclosure_content">AdSkipper needs access to Accessibility Services to detect ads on your screen and automatically skip them. This allows the app to:\n\n• See screen content to identify ad elements\n• Perform scrolling actions to skip past ads\n• Work automatically in the background\n\nAll data processing happens locally on your device. No screen content or personal information is collected, stored, or transmitted to any external servers.</string>
+    <string name="i_understand_and_agree">I Understand and Agree</string>
 </resources>
