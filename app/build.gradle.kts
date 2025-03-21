@@ -54,7 +54,6 @@ android {
     buildTypes {
         release {
             buildConfigField("Boolean", "DEBUG", "false")
-            // Updated API endpoint - using Base64 encoded value
             buildConfigField("String", "API_ENDPOINT", "\"aHR0cHM6Ly9hcGkuZXhhbXBsZS5jb20=\"")
             buildConfigField("Boolean", "ANALYTICS_ENABLED", "true")
             isMinifyEnabled = true
@@ -63,6 +62,12 @@ android {
                 getDefaultProguardFile("proguard-android-optimize.txt"),
                 "proguard-rules.pro"
             )
+
+            isDebuggable = false
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
+
             signingConfig = if (keystorePropertiesFile.exists()) {
                 signingConfigs.getByName("release")
             } else {
@@ -76,6 +81,11 @@ android {
             buildConfigField("String", "API_ENDPOINT", "\"https://dev-api.example.com\"")
             buildConfigField("Boolean", "ANALYTICS_ENABLED", "false")
             isMinifyEnabled = false
+
+            isDebuggable = true
+            ndk {
+                debugSymbolLevel = "FULL"
+            }
         }
     }
 
